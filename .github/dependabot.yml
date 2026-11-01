@@ -6,12 +6,8 @@ updates:
       interval: weekly
     versioning-strategy: increase
     open-pull-requests-limit: 5
-    # Align with pnpm minimumReleaseAgeExclude for AI SDK packages.
     cooldown:
-      default-days: 3
-      exclude:
-        - "@ai-sdk/*"
-        - "ai"
+      default-days: 5
     groups:
       production-dependencies:
         dependency-type: production
