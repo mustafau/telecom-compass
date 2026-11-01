@@ -1,0 +1,10 @@
+# Single-package workspace so pnpm settings live here (and Dependabot can see them).
+packages:
+  - "."
+
+# Dependabot regenerates the lockfile with pnpm's minimumReleaseAge filter.
+# Fast-moving Vercel AI SDK releases are often newer than that window, which
+# blocks unrelated dependency updates (ERR_PNPM_NO_MATCHING_VERSION).
+minimumReleaseAgeExclude:
+  - "@ai-sdk/*"
+  - "ai"
