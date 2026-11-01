@@ -1,32 +1,15 @@
 version: 2
 updates:
-  # pnpm is the npm ecosystem (detected via pnpm-lock.yaml)
   - package-ecosystem: npm
     directory: /
     schedule:
       interval: weekly
-      day: monday
-    open-pull-requests-limit: 10
-    labels:
-      - dependencies
+    versioning-strategy: increase
+    open-pull-requests-limit: 5
     groups:
       production-dependencies:
         dependency-type: production
-        update-types:
-          - minor
-          - patch
+        update-types: [minor, patch]
       development-dependencies:
         dependency-type: development
-        update-types:
-          - minor
-          - patch
-
-  - package-ecosystem: github-actions
-    directory: /
-    schedule:
-      interval: weekly
-      day: monday
-    open-pull-requests-limit: 5
-    labels:
-      - dependencies
-      - github-actions
+        update-types: [minor, patch]
