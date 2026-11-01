@@ -1,0 +1,71 @@
+{
+  "name": "telecom-compass",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@10.18.3",
+  "engines": {
+    "node": ">=22.12.0"
+  },
+  "scripts": {
+    "dev": "vite",
+    "dev:node": "tsx watch src/node/server.ts",
+    "build": "tsc -b && vite build",
+    "preview": "pnpm build && vite preview",
+    "cf:build": "pnpm build",
+    "cf:preview": "pnpm build && vite preview",
+    "cf:deploy": "pnpm build && wrangler deploy",
+    "cf:typegen": "wrangler types",
+    "lint": "eslint .",
+    "typecheck": "tsc -b --pretty false",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:cloudflare": "pnpm cf:build && vitest run --config vitest.cloudflare.config.ts",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "tsx src/server/db/migrate.ts"
+  },
+  "dependencies": {
+    "@ai-sdk/openai": "4.0.106",
+    "@ai-sdk/provider": "4.0.35",
+    "@ai-sdk/react": "4.0.163",
+    "@hono/node-server": "2.1.5",
+    "ai": "7.0.159",
+    "drizzle-orm": "0.45.4",
+    "hono": "4.13.16",
+    "pg": "8.23.1",
+    "react": "19.2.1",
+    "react-dom": "19.2.1",
+    "zod": "3.25.76"
+  },
+  "devDependencies": {
+    "@cloudflare/vite-plugin": "1.66.0",
+    "@eslint/js": "9.39.1",
+    "@types/node": "24.10.1",
+    "@types/pg": "8.23.1",
+    "@types/react": "19.2.7",
+    "@types/react-dom": "19.2.3",
+    "@vitejs/plugin-react": "5.1.1",
+    "drizzle-kit": "0.31.11",
+    "eslint": "9.39.2",
+    "eslint-plugin-react-hooks": "7.0.1",
+    "eslint-plugin-react-refresh": "0.4.24",
+    "globals": "16.5.0",
+    "prettier": "3.9.10",
+    "tsx": "4.23.15",
+    "typescript": "5.9.3",
+    "typescript-eslint": "8.48.0",
+    "vite": "7.3.7",
+    "vitest": "3.2.4",
+    "wrangler": "4.156.0"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "esbuild",
+      "workerd",
+      "sharp",
+      "unrs-resolver"
+    ],
+    "ignoredBuiltDependencies": []
+  }
+}

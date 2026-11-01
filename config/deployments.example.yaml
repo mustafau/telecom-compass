@@ -1,0 +1,158 @@
+schemaVersion: 1
+# Example shape only. ContractRefs must resolve to verified entries before activation.
+deployments:
+  - id: example-deployment
+    label: Example telecom deployment
+    environment: fixture
+    tenantBindings: [tenant-example]
+    authentication:
+      fixture:
+        type: none
+      # live-api:
+      #   type: oauth2-client-credentials
+      #   tokenUrl: https://id.example.invalid/oauth/token
+      #   clientIdSecretRef: TMF_CLIENT_ID
+      #   clientSecretRef: TMF_CLIENT_SECRET
+      #   scopes: [inventory.read]
+    apis:
+      customer:
+        apiId: TMF629
+        major: v4
+        contractRef: select-verified-tmf629-v4-edition
+        adapter: tmf629-v4
+        baseUrl: http://127.0.0.1:8789/a/customer/v4
+        auth: fixture
+        operations:
+          customer.get:
+            method: GET
+            path: /customer/{id}
+            responseKind: customer
+      product:
+        apiId: TMF637
+        major: v4
+        contractRef: select-verified-tmf637-v4-edition
+        adapter: tmf637-v4
+        baseUrl: http://127.0.0.1:8789/a/productInventory/v4
+        auth: fixture
+        operations:
+          product.get:
+            method: GET
+            path: /product/{id}
+            responseKind: product
+          product.listByCustomer:
+            method: GET
+            path: /product
+            responseKind: productCollection
+            query:
+              - name: relatedParty.id
+                source: context.targetCustomerId
+                type: string
+            pagination:
+              mode: offset
+              offsetParam: offset
+              limitParam: limit
+              totalHeader: X-Total-Count
+              maxPageSize: 50
+              maxPages: 2
+      service:
+        apiId: TMF638
+        major: v5
+        contractRef: select-verified-tmf638-v5-edition
+        adapter: tmf638-v5
+        baseUrl: http://127.0.0.1:8789/a/serviceInventory/v5
+        auth: fixture
+        operations:
+          service.get:
+            method: GET
+            path: /service/{id}
+            responseKind: service
+      resource:
+        apiId: TMF639
+        major: v4
+        contractRef: select-verified-tmf639-v4-edition
+        adapter: tmf639-v4
+        baseUrl: http://127.0.0.1:8789/a/resourceInventory/v4
+        auth: fixture
+        operations:
+          resource.get:
+            method: GET
+            path: /resource/{id}
+            responseKind: resource
+      ticket:
+        apiId: TMF621
+        major: v4
+        contractRef: select-verified-tmf621-v4-edition
+        adapter: tmf621-v4
+        baseUrl: http://127.0.0.1:8789/a/troubleTicket/v4
+        auth: fixture
+        operations:
+          ticket.get:
+            method: GET
+            path: /troubleTicket/{id}
+            responseKind: troubleTicket
+          ticket.listByService:
+            method: GET
+            path: /troubleTicket
+            responseKind: troubleTicketCollection
+            query:
+              - name: relatedEntity.id
+                source: args.serviceId
+                type: string
+            pagination:
+              mode: offset
+              offsetParam: offset
+              limitParam: limit
+              maxPageSize: 50
+              maxPages: 2
+      order:
+        apiId: TMF641
+        major: v4
+        contractRef: select-verified-tmf641-v4-edition
+        adapter: tmf641-v4
+        baseUrl: http://127.0.0.1:8789/a/serviceOrdering/v4
+        auth: fixture
+        operations:
+          order.get:
+            method: GET
+            path: /serviceOrder/{id}
+            responseKind: serviceOrder
+    capabilities:
+      customerRead: true
+      productRead: true
+      serviceRead: true
+      resourceRead: true
+      ticketRead: true
+      serviceOrderRead: true
+      customerToServices: true
+      serviceToTickets: true
+      serviceToOrders: true
+      knowledgeSearch: false
+    relationships:
+      customerToProducts:
+        type: query
+        operation: product.listByCustomer
+      productToServices:
+        type: reference
+        normalizedField: realizingServices
+        targetOperation: service.get
+      customerToServices:
+        type: via
+        steps: [customerToProducts, productToServices]
+      serviceToResources:
+        type: reference
+        normalizedField: supportingResources
+        targetOperation: resource.get
+      serviceToTickets:
+        type: query
+        operation: ticket.listByService
+      serviceToOrders:
+        type: reference
+        normalizedField: serviceOrders
+        targetOperation: order.get
+    extensions: []
+    knowledge:
+      type: disabled
+    limits:
+      maxRelatedRecordsPerKind: 5
+      maxRelationshipDepth: 3
+      maxResponseBytes: 1048576

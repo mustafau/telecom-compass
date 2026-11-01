@@ -1,0 +1,210 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Telecom Compass AnswerEnvelope v1",
+  "description": "Server creates identity/environment/time fields. Model output is restricted to content, followed by runtime grounding checks.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "answerId",
+    "turnId",
+    "environment",
+    "createdAt",
+    "content"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "const": "1"
+    },
+    "answerId": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "turnId": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "environment": {
+      "enum": [
+        "fixture",
+        "live"
+      ]
+    },
+    "createdAt": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "content": {
+      "$ref": "#/$defs/content"
+    }
+  },
+  "$defs": {
+    "content": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "status",
+        "claims",
+        "cards",
+        "gaps",
+        "suggestedQuestions"
+      ],
+      "properties": {
+        "status": {
+          "enum": [
+            "answered",
+            "partial",
+            "insufficient_evidence",
+            "clarification"
+          ]
+        },
+        "claims": {
+          "type": "array",
+          "maxItems": 12,
+          "items": {
+            "$ref": "#/$defs/claim"
+          }
+        },
+        "cards": {
+          "type": "array",
+          "maxItems": 8,
+          "items": {
+            "$ref": "#/$defs/card"
+          }
+        },
+        "gaps": {
+          "type": "array",
+          "maxItems": 8,
+          "items": {
+            "type": "string",
+            "maxLength": 400
+          }
+        },
+        "suggestedQuestions": {
+          "type": "array",
+          "maxItems": 3,
+          "items": {
+            "type": "string",
+            "maxLength": 200
+          }
+        }
+      }
+    },
+    "claim": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "text",
+        "evidenceIds"
+      ],
+      "properties": {
+        "kind": {
+          "enum": [
+            "observation",
+            "inference",
+            "guidance",
+            "clarification"
+          ]
+        },
+        "text": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 800
+        },
+        "evidenceIds": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "uniqueItems": true,
+          "maxItems": 16
+        }
+      }
+    },
+    "card": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "entityId",
+        "title",
+        "fields",
+        "evidenceIds"
+      ],
+      "properties": {
+        "kind": {
+          "enum": [
+            "service",
+            "troubleTicket",
+            "serviceOrder",
+            "estimate"
+          ]
+        },
+        "entityId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "title": {
+          "type": "string",
+          "maxLength": 160
+        },
+        "fields": {
+          "type": "array",
+          "maxItems": 10,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "key",
+              "label",
+              "value",
+              "evidenceId",
+              "sourcePointer"
+            ],
+            "properties": {
+              "key": {
+                "type": "string",
+                "maxLength": 80
+              },
+              "label": {
+                "type": "string",
+                "maxLength": 100
+              },
+              "value": {
+                "type": [
+                  "string",
+                  "number",
+                  "boolean",
+                  "null"
+                ]
+              },
+              "evidenceId": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 128
+              },
+              "sourcePointer": {
+                "type": "string",
+                "maxLength": 300
+              }
+            }
+          }
+        },
+        "evidenceIds": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "uniqueItems": true,
+          "maxItems": 16
+        }
+      }
+    }
+  }
+}

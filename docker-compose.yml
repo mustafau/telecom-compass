@@ -1,0 +1,19 @@
+services:
+  postgres:
+    image: postgres:16.10-alpine
+    environment:
+      POSTGRES_USER: compass
+      POSTGRES_PASSWORD: local_only
+      POSTGRES_DB: compass
+    ports:
+      - "5432:5432"
+    volumes:
+      - compass_pg:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U compass -d compass"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  compass_pg:

@@ -1,0 +1,22 @@
+schema_version: 1
+id: TF-0002
+title: Implement Telecom Compass according to its repository design
+task_branch: task/TF-0002
+feature_branch: feature/TF-0002
+spec_file: tasks/TF-0002/task.md
+scope:
+  writable_repositories: [telecom-compass]
+  context_repositories: []
+requirements:
+  implementation_required: true
+  require_tests: true
+  draft_pull_requests: true
+  documentation_only: false
+acceptance:
+  - Implement the selected milestone from Compass docs/implementation/plan.md.
+  - Pass the trusted Compass build profile with no production credentials.
+  - Preserve TMF deployment independence and native tools without MCP.
+  - Update implementation status with executed checks and limitations.
+constraints:
+  - Do not access production customer data or deploy the application.
+  - Do not edit source repository workflow files through the coding-agent task.

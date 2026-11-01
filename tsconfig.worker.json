@@ -1,0 +1,14 @@
+{
+  "extends": "./tsconfig.node.json",
+  "compilerOptions": {
+    "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.worker.tsbuildinfo",
+    "lib": ["ES2023", "WebWorker"],
+    "types": ["node", "vite/client"],
+    "baseUrl": ".",
+    "paths": {
+      "@server/*": ["src/server/*"],
+      "@contracts/*": ["src/contracts/*"]
+    }
+  },
+  "include": ["src/worker", "src/server", "src/contracts", "worker-configuration.d.ts"]
+}
