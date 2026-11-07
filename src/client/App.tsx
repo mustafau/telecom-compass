@@ -414,7 +414,6 @@ export function App() {
                 ))}
               </ul>
             ) : null}
-            <p className="fixture-banner">Fixture / synthetic data mode</p>
           </aside>
 
           <main className="panel chat">

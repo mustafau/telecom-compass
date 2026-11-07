@@ -51,7 +51,6 @@ body {
 .session-box,
 label,
 .caps,
-.fixture-banner,
 .gaps {
   color: var(--muted);
 }
@@ -201,16 +200,6 @@ textarea {
   color: var(--accent);
   padding: 0 0.25rem;
   text-decoration: underline;
-}
-
-.fixture-banner {
-  margin-top: 1rem;
-  padding: 0.65rem 0.75rem;
-  border-radius: 12px;
-  background: rgba(196, 92, 38, 0.1);
-  border: 1px solid rgba(196, 92, 38, 0.25);
-  color: var(--accent-2);
-  font-weight: 600;
 }
 
 .customer-search {
