@@ -46,6 +46,7 @@ Open http://localhost:3000 — log in with a local persona, start a conversation
 | [TMF integration](docs/design/tmf-integration.md) | Profiles, versions, mapping, relationships |
 | [Local development](docs/operations/local-development.md) | Dev commands and test setup |
 | [Logging](docs/operations/logging.md) | Stdout JSON events for local/prod troubleshooting |
+| [OIDC / Cloudflare Access](docs/operations/oidc-cloudflare-access.md) | Solo-operator Sign-in wiring |
 | [Production checklist](docs/operations/production-integration-checklist.md) | Launch gates |
 | [Status](docs/implementation/status.md) | Implemented vs unverified |
 | [Contributing](CONTRIBUTING.md) | How to continue work |

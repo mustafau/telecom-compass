@@ -2,6 +2,10 @@ import "./guard";
 import path from "node:path";
 import type { AppEnv } from "./config/env";
 import { loadLocalPersonas, type LocalPersonaFile } from "./auth/local-personas";
+import {
+  loadOidcEntitlements,
+  type OidcEntitlementsFile,
+} from "./auth/oidc/entitlements";
 import { createDb } from "./db/client";
 import { MemoryStore } from "./db/memory-store";
 import { PostgresStore } from "./db/postgres-store";
@@ -22,6 +26,7 @@ export type AppContext = {
   storeKind: "memory" | "postgres";
   authz: AuthorizationService;
   personas: LocalPersonaFile | null;
+  oidcEntitlements: OidcEntitlementsFile | null;
   profiles: Map<string, CheckedProfile>;
   servicesFor(deploymentId: string): DomainServices;
   close?: () => Promise<void>;
@@ -52,10 +57,14 @@ export async function createAppContext(env: AppEnv): Promise<AppContext> {
 
   const authz = createFixtureAuthorizationService();
   let personas: LocalPersonaFile | null = null;
+  let oidcEntitlements: OidcEntitlementsFile | null = null;
   if (env.AUTH_MODE === "local-fixture") {
     personas = await loadLocalPersonas(
       path.resolve(env.AUTHORIZATION_CONFIG_FILE ?? "config/auth/local-personas.yaml"),
     );
+  }
+  if (env.AUTH_MODE === "oidc") {
+    oidcEntitlements = await loadOidcEntitlements(path.resolve(env.OIDC_ENTITLEMENTS_FILE));
   }
 
   const profiles = new Map<string, CheckedProfile>();
@@ -130,7 +139,18 @@ export async function createAppContext(env: AppEnv): Promise<AppContext> {
     profileCount: profiles.size,
     testFixtures: enableTestFixtures ? 1 : 0,
     tmfHosts: tmfHosts.join(","),
+    oidcEntitledPrincipals: oidcEntitlements?.principals.length ?? 0,
   });
 
-  return { env, store, storeKind, authz, personas, profiles, servicesFor, close };
+  return {
+    env,
+    store,
+    storeKind,
+    authz,
+    personas,
+    oidcEntitlements,
+    profiles,
+    servicesFor,
+    close,
+  };
 }

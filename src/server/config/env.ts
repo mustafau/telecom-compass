@@ -27,6 +27,9 @@ const envSchema = z.object({
   OIDC_CLIENT_ID: z.string().optional(),
   OIDC_CLIENT_SECRET: z.string().optional(),
   OIDC_REDIRECT_URI: z.string().url().optional(),
+  /** HMAC secret for PKCE login cookie; defaults to OIDC_CLIENT_SECRET when unset. */
+  OIDC_STATE_SECRET: z.string().min(16).optional(),
+  OIDC_ENTITLEMENTS_FILE: z.string().default("./config/auth/oidc-entitlements.yaml"),
   AUTHORIZATION_CONFIG_FILE: z.string().optional(),
   TURN_DEADLINE_MS: z.coerce.number().int().positive().default(60_000),
   DISCOVERY_DEADLINE_MS: z.coerce.number().int().positive().default(45_000),
@@ -74,6 +77,11 @@ function assertModeCompatibility(env: AppEnv): void {
     if (!env.OIDC_ISSUER || !env.OIDC_CLIENT_ID || !env.OIDC_REDIRECT_URI) {
       throw new EnvValidationError(
         "AUTH_MODE=oidc requires OIDC_ISSUER, OIDC_CLIENT_ID and OIDC_REDIRECT_URI",
+      );
+    }
+    if (!env.OIDC_STATE_SECRET && !env.OIDC_CLIENT_SECRET) {
+      throw new EnvValidationError(
+        "AUTH_MODE=oidc requires OIDC_CLIENT_SECRET or OIDC_STATE_SECRET for login state",
       );
     }
   }

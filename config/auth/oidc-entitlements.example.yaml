@@ -1,0 +1,12 @@
+schemaVersion: 1
+policyVersion: oidc-entitlements-1
+# Allowlist only. Email must match the IdP `email` claim (Cloudflare Access includes it).
+# Copy to oidc-entitlements.yaml and set your address — Access policy should match.
+principals:
+  - email: you@example.com
+    displayName: Operator
+    tenantId: tenant-a
+    audience: operator
+    roles: [operator]
+    allowedDeploymentIds: [telecom-api-sandbox]
+    allowedCustomerIds: [customer-001]

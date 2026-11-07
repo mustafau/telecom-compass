@@ -8,7 +8,7 @@ M0–M7 local slices are implemented. Live OIDC IdP, live TMF production profile
 | --- | --- | --- |
 | M0 Foundation | Complete (local) | Proof pipeline, health, build, wrangler dry-run |
 | M1 TMF profiles/adapters | Complete (local) | Fixture A/B, contract lock, transport, `profile:check`, `setup:local` |
-| M2 Identity/persistence | Complete (local) | Local personas, OIDC helpers + mocked tests, async `CompassStore` with Memory + Postgres/Drizzle repos, SQL migration `0001_m2_core.sql` |
+| M2 Identity/persistence | Complete (local) + OIDC wired | Local personas; OIDC discovery/PKCE/JWKS + email entitlements + UI Sign-in (Cloudflare Access compatible); live IdP still needs your Access app credentials |
 | M3 Tools/evidence | Complete (local) | Domain services, evidence ledger, audience projection, optional Markdown knowledge |
 | M4 Agent/API | Complete (local) | Scripted turn runner, conversation/turn/evidence/feedback routes, UI stream parts |
 | M5 Product UI | Complete (local, API journeys) | React chat UI with login, scope, capabilities, evidence drawer; **Playwright browser suite not added** — operator/customer journeys covered by HTTP integration tests |
@@ -29,6 +29,7 @@ M0–M7 local slices are implemented. Live OIDC IdP, live TMF production profile
 | yaml | 2.8.1 | profiles/personas |
 | Drizzle / pg | 0.45.4 / 8.23.1 | schema + migrate |
 | Vitest | 3.2.4 | unit + integration |
+| jose | 6.2.15 | OIDC ID token JWKS verify |
 
 ## Supported TMF matrix
 

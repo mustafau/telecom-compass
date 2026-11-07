@@ -8,6 +8,7 @@ import {
   assertSameOrigin,
   clearSessionCookieHeader,
   issueSession,
+  parseCookie,
   readSession,
   sessionCookieHeader,
   SESSION_COOKIE,
@@ -15,7 +16,16 @@ import {
 import { hashRequest } from "../db/memory-store";
 import { runTurn } from "../agent/turn-runner";
 import { assertAuthorized } from "../policy/fixture-authz";
-import { beginOidcLogin, exchangeAuthorizationCode, mapVerifiedClaimsToPrincipal } from "../auth/oidc/client";
+import { beginOidcLogin, exchangeAuthorizationCode } from "../auth/oidc/client";
+import { principalFromOidcEntitlements } from "../auth/oidc/entitlements";
+import {
+  clearOidcLoginCookieHeader,
+  OIDC_LOGIN_COOKIE,
+  oidcLoginCookieHeader,
+  openOidcLoginState,
+  resolveOidcStateSecret,
+  sealOidcLoginState,
+} from "../auth/oidc/login-state";
 import { safeLog } from "../telemetry/safe-log";
 
 const createConversationSchema = z.object({
@@ -63,6 +73,15 @@ export function mountApiRoutes(app: Hono, ctx: AppContext): void {
       return c.json({ ok: false }, 503);
     }
   });
+
+  app.get("/api/auth/mode", (c) =>
+    c.json({
+      authMode: ctx.env.AUTH_MODE,
+      oidcEnabled: ctx.env.AUTH_MODE === "oidc",
+      localEnabled: ctx.env.AUTH_MODE === "local-fixture",
+      loginPath: ctx.env.AUTH_MODE === "oidc" ? "/api/auth/login" : null,
+    }),
+  );
 
   app.get("/api/auth/local/personas", async (c) => {
     if (ctx.env.AUTH_MODE !== "local-fixture" || !ctx.personas) {
@@ -116,32 +135,67 @@ export function mountApiRoutes(app: Hono, ctx: AppContext): void {
     if (!ctx.env.OIDC_ISSUER || !ctx.env.OIDC_CLIENT_ID || !ctx.env.OIDC_REDIRECT_URI) {
       return c.json({ error: { code: "MISCONFIGURED", message: "OIDC incomplete" } }, 503);
     }
-    const started = beginOidcLogin({
-      issuer: ctx.env.OIDC_ISSUER,
-      clientId: ctx.env.OIDC_CLIENT_ID,
-      clientSecret: ctx.env.OIDC_CLIENT_SECRET,
-      redirectUri: ctx.env.OIDC_REDIRECT_URI,
-    });
-    // Ephemeral PKCE state kept in memory for demo; production should use signed cookie/store.
-    (ctx as unknown as { oidcPending?: Map<string, typeof started> }).oidcPending ??= new Map();
-    (ctx as unknown as { oidcPending: Map<string, typeof started> }).oidcPending.set(
-      started.state,
-      started,
-    );
-    return c.redirect(started.authorizationUrl);
+    try {
+      const returnPath = c.req.query("return") ?? "/";
+      const started = await beginOidcLogin(
+        {
+          issuer: ctx.env.OIDC_ISSUER,
+          clientId: ctx.env.OIDC_CLIENT_ID,
+          clientSecret: ctx.env.OIDC_CLIENT_SECRET,
+          redirectUri: ctx.env.OIDC_REDIRECT_URI,
+        },
+        { returnPath },
+      );
+      const sealed = sealOidcLoginState(
+        {
+          state: started.state,
+          nonce: started.nonce,
+          codeVerifier: started.codeVerifier,
+          returnPath: started.returnPath,
+          exp: Date.now() + 10 * 60_000,
+        },
+        resolveOidcStateSecret(ctx.env),
+      );
+      c.header("Set-Cookie", oidcLoginCookieHeader(sealed, ctx.env));
+      safeLog("info", "oidc.login.start", { issuerHost: new URL(ctx.env.OIDC_ISSUER).host });
+      return c.redirect(started.authorizationUrl);
+    } catch (error) {
+      safeLog("error", "oidc.login.start_failed", {
+        message: error instanceof Error ? error.message : "start failed",
+      });
+      return c.json(
+        {
+          error: {
+            code: "AUTH_FAILED",
+            message: error instanceof Error ? error.message : "OIDC login failed",
+          },
+        },
+        503,
+      );
+    }
   });
 
   app.get("/api/auth/callback", async (c) => {
     if (ctx.env.AUTH_MODE !== "oidc") {
       return c.json({ error: { code: "NOT_AVAILABLE", message: "OIDC disabled" } }, 404);
     }
+    if (!ctx.oidcEntitlements) {
+      return c.json({ error: { code: "MISCONFIGURED", message: "OIDC entitlements missing" } }, 503);
+    }
     const code = c.req.query("code");
     const state = c.req.query("state");
-    if (!code || !state) return c.json({ error: { code: "INVALID_ARGUMENT", message: "missing code/state" } }, 400);
-    const pending = (ctx as unknown as { oidcPending?: Map<string, ReturnType<typeof beginOidcLogin>> })
-      .oidcPending?.get(state.split(".")[0] ?? "");
-    if (!pending) return c.json({ error: { code: "INVALID_ARGUMENT", message: "unknown state" } }, 400);
+    if (!code || !state) {
+      return c.json({ error: { code: "INVALID_ARGUMENT", message: "missing code/state" } }, 400);
+    }
+    const sealed = parseCookie(c.req.header("cookie"), OIDC_LOGIN_COOKIE);
+    if (!sealed) {
+      return c.json({ error: { code: "INVALID_ARGUMENT", message: "missing login state" } }, 400);
+    }
     try {
+      const pending = openOidcLoginState(sealed, resolveOidcStateSecret(ctx.env));
+      if (pending.state !== state) {
+        return c.json({ error: { code: "INVALID_ARGUMENT", message: "state mismatch" } }, 400);
+      }
       const exchanged = await exchangeAuthorizationCode({
         config: {
           issuer: ctx.env.OIDC_ISSUER!,
@@ -153,22 +207,32 @@ export function mountApiRoutes(app: Hono, ctx: AppContext): void {
         codeVerifier: pending.codeVerifier,
         expectedNonce: pending.nonce,
       });
-      const principal = mapVerifiedClaimsToPrincipal(exchanged.idTokenClaims, {
-        tenantClaim: "tenant_id",
-        audienceClaim: "compass_audience",
-        rolesClaim: "roles",
-        deploymentsClaim: "deployments",
-        customersClaim: "customers",
-        policyVersion: "oidc-claims-1",
-      });
+      const principal = principalFromOidcEntitlements(
+        exchanged.idTokenClaims,
+        ctx.oidcEntitlements,
+      );
       const { token } = await issueSession(ctx.store, principal);
-      c.header("Set-Cookie", sessionCookieHeader(token, ctx.env));
-      return c.redirect("/");
+      // Set session first; Node adapter must append both Set-Cookie headers.
+      c.header("Set-Cookie", sessionCookieHeader(token, ctx.env), { append: true });
+      c.header("Set-Cookie", clearOidcLoginCookieHeader(ctx.env), { append: true });
+      safeLog("info", "oidc.login.success", {
+        audience: principal.audience,
+        tenantId: principal.tenantId,
+      });
+      return c.redirect(pending.returnPath || "/");
     } catch (error) {
+      safeLog("warn", "oidc.login.failed", {
+        message: error instanceof Error ? error.message : "OIDC failed",
+      });
+      c.header("Set-Cookie", clearOidcLoginCookieHeader(ctx.env));
+      const codeName =
+        error instanceof Error && "code" in error && (error as { code?: string }).code === "NOT_ENTITLED"
+          ? "NOT_ENTITLED"
+          : "AUTH_FAILED";
       return c.json(
         {
           error: {
-            code: "AUTH_FAILED",
+            code: codeName,
             message: error instanceof Error ? error.message : "OIDC failed",
           },
         },
@@ -191,7 +255,10 @@ export function mountApiRoutes(app: Hono, ctx: AppContext): void {
 
   app.get("/api/session", async (c) => {
     const session = await readSession(ctx.store, c.req.header("cookie"));
-    if (!session) return c.json({ error: { code: "UNAUTHENTICATED", message: "No session" } }, 401);
+    if (!session) {
+      // 204: anonymous probe used by the SPA; avoid 401 noise before Sign in.
+      return c.body(null, 204);
+    }
     const p = session.principal;
     return c.json({
       subject: p.subject,
@@ -228,9 +295,10 @@ export function mountApiRoutes(app: Hono, ctx: AppContext): void {
     }
     const id = c.req.param("id");
     assertAuthorized(ctx.authz.authorizeDeployment(session.principal, id));
-    const q = (c.req.query("q") ?? "").toLowerCase();
+    const q = (c.req.query("q") ?? "").trim().toLowerCase();
+    // Empty q → entitled list (picker default). Non-empty → substring match.
     const customers = session.principal.allowedCustomerIds
-      .filter((cid) => !q || q.length < 3 || cid.includes(q))
+      .filter((cid) => !q || cid.toLowerCase().includes(q))
       .slice(0, 20)
       .map((cid) => ({ id: cid, displayName: cid }));
     return c.json({ customers });

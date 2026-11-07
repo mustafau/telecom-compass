@@ -25,6 +25,8 @@ async function bootApp(bindings?: WorkerBindings): Promise<{ ctx: AppContext; ap
         OIDC_CLIENT_ID: process.env.OIDC_CLIENT_ID,
         OIDC_CLIENT_SECRET: process.env.OIDC_CLIENT_SECRET,
         OIDC_REDIRECT_URI: process.env.OIDC_REDIRECT_URI,
+        OIDC_STATE_SECRET: process.env.OIDC_STATE_SECRET,
+        OIDC_ENTITLEMENTS_FILE: process.env.OIDC_ENTITLEMENTS_FILE,
         DEPLOYMENTS_FILE: process.env.DEPLOYMENTS_FILE,
         DEFAULT_DEPLOYMENT_ID: process.env.DEFAULT_DEPLOYMENT_ID,
         AUTHORIZATION_CONFIG_FILE: process.env.AUTHORIZATION_CONFIG_FILE,

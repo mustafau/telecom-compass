@@ -138,8 +138,18 @@ async function incomingToRequest(req: IncomingMessage): Promise<Request> {
 
 async function writeNodeResponse(res: ServerResponse, response: Response): Promise<void> {
   res.statusCode = response.status;
+  // Set-Cookie can appear multiple times (session + clear oidc login). Node's
+  // setHeader overwrites, so use getSetCookie + appendHeader.
+  const setCookies =
+    typeof response.headers.getSetCookie === "function"
+      ? response.headers.getSetCookie()
+      : [];
+  for (const cookie of setCookies) {
+    res.appendHeader("Set-Cookie", cookie);
+  }
   response.headers.forEach((value, key) => {
-    if (key.toLowerCase() === "transfer-encoding") return;
+    const lower = key.toLowerCase();
+    if (lower === "transfer-encoding" || lower === "set-cookie") return;
     res.setHeader(key, value);
   });
   if (!response.body) {

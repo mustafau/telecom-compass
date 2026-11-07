@@ -1,0 +1,10 @@
+schemaVersion: 1
+policyVersion: oidc-entitlements-1
+principals:
+  - email: mustafaulu.net@gmail.com
+    displayName: Mustafa
+    tenantId: tenant-a
+    audience: operator
+    roles: [operator]
+    allowedDeploymentIds: [telecom-api-sandbox]
+    allowedCustomerIds: [customer-001]

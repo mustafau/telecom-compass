@@ -38,4 +38,17 @@ describe("loadEnv", () => {
       }),
     ).toThrow(/MODEL_API_KEY/);
   });
+
+  it("rejects oidc without client or state secret", () => {
+    expect(() =>
+      loadEnv({
+        APP_MODE: "local",
+        AUTH_MODE: "oidc",
+        MODEL_MODE: "scripted",
+        OIDC_ISSUER: "https://issuer.example",
+        OIDC_CLIENT_ID: "compass",
+        OIDC_REDIRECT_URI: "http://localhost:3000/api/auth/callback",
+      }),
+    ).toThrow(/OIDC_CLIENT_SECRET|OIDC_STATE_SECRET/);
+  });
 });

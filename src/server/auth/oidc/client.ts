@@ -1,13 +1,16 @@
 import "../../guard";
 import { createHash, randomBytes } from "node:crypto";
+import { createRemoteJWKSet, jwtVerify } from "jose";
 import type { Principal } from "../types";
+import { discoverOidc, type OidcDiscovery } from "./discovery";
 
 export type OidcConfig = {
   issuer: string;
   clientId: string;
   clientSecret?: string;
   redirectUri: string;
-  audienceClaim?: string;
+  /** openid email profile — Access needs email for entitlement mapping. */
+  scope?: string;
 };
 
 export type OidcAuthorizationRequest = {
@@ -15,30 +18,44 @@ export type OidcAuthorizationRequest = {
   state: string;
   nonce: string;
   codeVerifier: string;
+  returnPath: string;
 };
 
 /**
- * Generic OIDC authorization-code + PKCE helpers. Live discovery against a real
- * IdP is optional; unit tests inject token/userinfo responses.
+ * OIDC authorization-code + PKCE. Endpoints come from discovery (Cloudflare Access
+ * uses /authorization not /authorize).
  */
-export function beginOidcLogin(
+export async function beginOidcLogin(
   config: OidcConfig,
-  returnPath = "/",
-): OidcAuthorizationRequest {
+  options: {
+    returnPath?: string;
+    fetchImpl?: typeof fetch;
+    discovery?: OidcDiscovery;
+  } = {},
+): Promise<OidcAuthorizationRequest> {
+  const returnPath = sanitizeReturnPath(options.returnPath ?? "/");
+  const discovery =
+    options.discovery ?? (await discoverOidc(config.issuer, options.fetchImpl ?? fetch));
   const state = randomBytes(16).toString("hex");
   const nonce = randomBytes(16).toString("hex");
   const codeVerifier = randomBytes(32).toString("base64url");
   const challenge = createHash("sha256").update(codeVerifier).digest("base64url");
-  const url = new URL(`${config.issuer.replace(/\/$/, "")}/authorize`);
+  const url = new URL(discovery.authorizationEndpoint);
   url.searchParams.set("response_type", "code");
   url.searchParams.set("client_id", config.clientId);
   url.searchParams.set("redirect_uri", config.redirectUri);
-  url.searchParams.set("scope", "openid profile");
-  url.searchParams.set("state", `${state}.${Buffer.from(returnPath).toString("base64url")}`);
+  url.searchParams.set("scope", config.scope ?? "openid email profile");
+  url.searchParams.set("state", state);
   url.searchParams.set("nonce", nonce);
   url.searchParams.set("code_challenge", challenge);
   url.searchParams.set("code_challenge_method", "S256");
-  return { authorizationUrl: url.toString(), state, nonce, codeVerifier };
+  return {
+    authorizationUrl: url.toString(),
+    state,
+    nonce,
+    codeVerifier,
+    returnPath,
+  };
 }
 
 export type TokenExchangeResult = {
@@ -52,7 +69,8 @@ export async function exchangeAuthorizationCode(options: {
   codeVerifier: string;
   expectedNonce: string;
   fetchImpl?: typeof fetch;
-  /** Test hook replacing network token + userinfo calls. */
+  discovery?: OidcDiscovery;
+  /** Test hook replacing network token + JWKS verification. */
   mockExchange?: () => Promise<TokenExchangeResult>;
 }): Promise<TokenExchangeResult> {
   if (options.mockExchange) {
@@ -62,7 +80,11 @@ export async function exchangeAuthorizationCode(options: {
     }
     return result;
   }
+
   const fetchImpl = options.fetchImpl ?? fetch;
+  const discovery =
+    options.discovery ?? (await discoverOidc(options.config.issuer, fetchImpl));
+
   const body = new URLSearchParams({
     grant_type: "authorization_code",
     code: options.code,
@@ -73,11 +95,16 @@ export async function exchangeAuthorizationCode(options: {
   if (options.config.clientSecret) {
     body.set("client_secret", options.config.clientSecret);
   }
-  const tokenRes = await fetchImpl(`${options.config.issuer.replace(/\/$/, "")}/token`, {
+
+  const tokenRes = await fetchImpl(discovery.tokenEndpoint, {
     method: "POST",
-    headers: { "Content-Type": "application/x-www-form-urlencoded", Accept: "application/json" },
+    headers: {
+      "Content-Type": "application/x-www-form-urlencoded",
+      Accept: "application/json",
+    },
     body,
     redirect: "error",
+    signal: AbortSignal.timeout(10_000),
   });
   if (!tokenRes.ok) {
     throw new Error(`OIDC token exchange failed (${tokenRes.status})`);
@@ -89,16 +116,20 @@ export async function exchangeAuthorizationCode(options: {
   if (!json.access_token || !json.id_token) {
     throw new Error("OIDC token response incomplete");
   }
-  const claims = decodeJwtPayload(json.id_token);
+
+  const jwks = createRemoteJWKSet(new URL(discovery.jwksUri));
+  const verified = await jwtVerify(json.id_token, jwks, {
+    issuer: discovery.issuer,
+    audience: options.config.clientId,
+  });
+  const claims = verified.payload as Record<string, unknown>;
   if (claims.nonce !== options.expectedNonce) {
     throw new Error("OIDC nonce mismatch");
-  }
-  if (claims.iss !== options.config.issuer && claims.iss !== `${options.config.issuer}/`) {
-    throw new Error("OIDC issuer mismatch");
   }
   return { accessToken: json.access_token, idTokenClaims: claims };
 }
 
+/** Legacy claim-map helper retained for unit tests / IdPs that mint custom claims. */
 export function mapVerifiedClaimsToPrincipal(
   claims: Record<string, unknown>,
   mapping: {
@@ -148,9 +179,7 @@ function stringArrayClaim(claims: Record<string, unknown>, name: string): string
   return value.filter((v): v is string => typeof v === "string");
 }
 
-function decodeJwtPayload(token: string): Record<string, unknown> {
-  const parts = token.split(".");
-  if (parts.length < 2) throw new Error("Invalid JWT");
-  const json = Buffer.from(parts[1]!, "base64url").toString("utf8");
-  return JSON.parse(json) as Record<string, unknown>;
+function sanitizeReturnPath(path: string): string {
+  if (!path.startsWith("/") || path.startsWith("//") || path.includes("://")) return "/";
+  return path;
 }

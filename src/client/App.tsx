@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 
 type Persona = { id: string; displayName: string; audience: string; tenantId: string };
 type Session = {
@@ -49,6 +49,7 @@ function messagesToItems(
 
 export function App() {
   const [personas, setPersonas] = useState<Persona[]>([]);
+  const [authMode, setAuthMode] = useState<"local-fixture" | "oidc" | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [deploymentId, setDeploymentId] = useState("telecom-api-sandbox");
   const [customerId, setCustomerId] = useState("customer-001");
@@ -63,18 +64,27 @@ export function App() {
 
   useEffect(() => {
     void (async () => {
+      const modeRes = await fetch("/api/auth/mode");
+      let mode: "local-fixture" | "oidc" = "local-fixture";
+      if (modeRes.ok) {
+        const body = (await modeRes.json()) as { authMode: "local-fixture" | "oidc" };
+        mode = body.authMode;
+        setAuthMode(mode);
+      }
       const sessionRes = await fetch("/api/session");
-      if (sessionRes.ok) {
+      if (sessionRes.status === 200) {
         const next = (await sessionRes.json()) as Session;
         setSession(next);
         if (next.allowedDeploymentIds[0]) setDeploymentId(next.allowedDeploymentIds[0]);
         if (next.allowedCustomerIds[0]) setCustomerId(next.allowedCustomerIds[0]);
         await refreshConversations(true);
       }
-      const personaRes = await fetch("/api/auth/local/personas");
-      if (personaRes.ok) {
-        const body = (await personaRes.json()) as { personas: Persona[] };
-        setPersonas(body.personas);
+      if (mode === "local-fixture") {
+        const personaRes = await fetch("/api/auth/local/personas");
+        if (personaRes.ok) {
+          const body = (await personaRes.json()) as { personas: Persona[] };
+          setPersonas(body.personas);
+        }
       }
     })();
   }, []);
@@ -172,11 +182,14 @@ export function App() {
 
   async function startConversation() {
     setError(null);
+    const boundDeployment =
+      session?.allowedDeploymentIds[0] ?? deploymentId;
+    setDeploymentId(boundDeployment);
     const res = await fetch("/api/conversations", {
       method: "POST",
       headers: { "content-type": "application/json", origin: ORIGIN },
       body: JSON.stringify({
-        deploymentId,
+        deploymentId: boundDeployment,
         targetCustomerId: session?.audience === "customer" ? undefined : customerId,
       }),
     });
@@ -328,44 +341,43 @@ export function App() {
 
       {!session ? (
         <section className="panel">
-          <h2>Local test login</h2>
-          <p>Choose a fixture persona. Local login cannot activate live deployments.</p>
-          <div className="persona-row">
-            {personas.map((p) => (
-              <button key={p.id} type="button" onClick={() => void login(p.id)}>
-                {p.displayName}
-                <small>
-                  {p.audience} / {p.tenantId}
-                </small>
-              </button>
-            ))}
-          </div>
+          {authMode === "oidc" ? (
+            <>
+              <h2>Sign in</h2>
+              <p>Authenticate with your configured identity provider (Cloudflare Access). Only entitled emails receive a Compass session.</p>
+              <div className="persona-row">
+                <a className="button-link" href="/api/auth/login">
+                  Sign in
+                </a>
+              </div>
+            </>
+          ) : (
+            <>
+              <h2>Local test login</h2>
+              <p>Choose a fixture persona. Local login cannot activate live deployments.</p>
+              <div className="persona-row">
+                {personas.map((p) => (
+                  <button key={p.id} type="button" onClick={() => void login(p.id)}>
+                    {p.displayName}
+                    <small>
+                      {p.audience} / {p.tenantId}
+                    </small>
+                  </button>
+                ))}
+              </div>
+            </>
+          )}
         </section>
       ) : (
         <div className="layout">
           <aside className="panel">
             <h2>Scope</h2>
-            <label>
-              Deployment
-              <select value={deploymentId} onChange={(e) => setDeploymentId(e.target.value)}>
-                {session.allowedDeploymentIds.map((id) => (
-                  <option key={id} value={id}>
-                    {id}
-                  </option>
-                ))}
-              </select>
-            </label>
             {session.audience === "operator" ? (
-              <label>
-                Customer
-                <select value={customerId} onChange={(e) => setCustomerId(e.target.value)}>
-                  {session.allowedCustomerIds.map((id) => (
-                    <option key={id} value={id}>
-                      {id}
-                    </option>
-                  ))}
-                </select>
-              </label>
+              <CustomerSearch
+                deploymentId={session.allowedDeploymentIds[0] ?? deploymentId}
+                value={customerId}
+                onChange={setCustomerId}
+              />
             ) : (
               <p>Customer account bound from verified mapping.</p>
             )}
@@ -386,10 +398,7 @@ export function App() {
                         onClick={() => void openConversation(row.id)}
                       >
                         <span>{row.title}</span>
-                        <small>
-                          {row.deploymentId}
-                          {row.targetCustomerId ? ` · ${row.targetCustomerId}` : ""}
-                        </small>
+                        <small>{row.targetCustomerId ?? ""}</small>
                       </button>
                     </li>
                   ))}
@@ -477,6 +486,113 @@ export function App() {
         <p className="error" role="alert">
           {error}
         </p>
+      ) : null}
+    </div>
+  );
+}
+
+function CustomerSearch({
+  deploymentId,
+  value,
+  onChange,
+}: {
+  deploymentId: string;
+  value: string;
+  onChange: (id: string) => void;
+}) {
+  const listId = useId();
+  const rootRef = useRef<HTMLDivElement>(null);
+  const [query, setQuery] = useState(value);
+  const [open, setOpen] = useState(false);
+  const [options, setOptions] = useState<Array<{ id: string; displayName: string }>>([]);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    setQuery(value);
+  }, [value]);
+
+  useEffect(() => {
+    if (!open) return;
+    const ac = new AbortController();
+    const timer = window.setTimeout(() => {
+      setLoading(true);
+      void fetch(
+        `/api/deployments/${encodeURIComponent(deploymentId)}/customers?q=${encodeURIComponent(query)}`,
+        { signal: ac.signal },
+      )
+        .then(async (res) => {
+          if (!res.ok) return;
+          const body = (await res.json()) as {
+            customers: Array<{ id: string; displayName: string }>;
+          };
+          setOptions(body.customers);
+        })
+        .catch(() => undefined)
+        .finally(() => setLoading(false));
+    }, 150);
+    return () => {
+      window.clearTimeout(timer);
+      ac.abort();
+    };
+  }, [deploymentId, open, query]);
+
+  useEffect(() => {
+    function onDocMouseDown(event: MouseEvent) {
+      if (!rootRef.current?.contains(event.target as Node)) setOpen(false);
+    }
+    document.addEventListener("mousedown", onDocMouseDown);
+    return () => document.removeEventListener("mousedown", onDocMouseDown);
+  }, []);
+
+  function pick(id: string) {
+    onChange(id);
+    setQuery(id);
+    setOpen(false);
+  }
+
+  return (
+    <div className="customer-search" ref={rootRef}>
+      <label htmlFor={listId}>Customer</label>
+      <input
+        id={listId}
+        type="search"
+        autoComplete="off"
+        spellCheck={false}
+        placeholder="Search customer ID…"
+        value={query}
+        onFocus={() => setOpen(true)}
+        onChange={(e) => {
+          setQuery(e.target.value);
+          setOpen(true);
+        }}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") {
+            e.preventDefault();
+            const exact = options.find((o) => o.id === query.trim()) ?? options[0];
+            if (exact) pick(exact.id);
+            else if (query.trim()) onChange(query.trim());
+            setOpen(false);
+          }
+          if (e.key === "Escape") setOpen(false);
+        }}
+        onBlur={() => {
+          if (query.trim() && query.trim() !== value) onChange(query.trim());
+        }}
+      />
+      {open ? (
+        <ul className="customer-search-menu" role="listbox">
+          {loading ? <li className="muted">Searching…</li> : null}
+          {!loading && options.length === 0 ? (
+            <li className="muted">No entitled matches</li>
+          ) : null}
+          {options.map((opt) => (
+            <li key={opt.id}>
+              <button type="button" role="option" onMouseDown={(e) => e.preventDefault()} onClick={() => pick(opt.id)}>
+                {opt.displayName}
+              </button>
+            </li>
+          ))}
+        </ul>
       ) : null}
     </div>
   );
