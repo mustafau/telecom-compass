@@ -6,6 +6,7 @@ import {
   stepCountIs,
   type LanguageModel,
 } from "ai";
+import { z } from "zod";
 import {
   answerContentSchema,
   answerEnvelopeSchema,
@@ -36,6 +37,8 @@ export type TurnRunnerDeps = {
   modelMode: "scripted" | "provider";
   /** Required when modelMode=provider. */
   model?: LanguageModel;
+  /** google | openai — used for provider-specific structured-output workarounds. */
+  modelProvider?: string;
   maxDiscoverySteps?: number;
   finalAnswerMaxTokens?: number;
 };
@@ -162,17 +165,35 @@ async function runProviderTurn(
 
   let content: AnswerContent;
   try {
+    // Gemini native JSON Schema rejects z.union (used by card field values).
+    // Disable Google structuredOutputs and use a stringly synthesis schema, then normalize.
+    const useGoogleWorkaround = deps.modelProvider === "google";
+    const synthesisSchema = useGoogleWorkaround
+      ? googleSynthesisContentSchema
+      : answerContentSchema;
     const synthesis = await generateText({
       model,
-      output: Output.object({ schema: answerContentSchema }),
+      output: Output.object({ schema: synthesisSchema }),
       maxOutputTokens: deps.finalAnswerMaxTokens ?? 2_000,
       abortSignal: ctx.signal,
+      ...(useGoogleWorkaround
+        ? {
+            providerOptions: {
+              google: { structuredOutputs: false },
+            },
+          }
+        : {}),
       system: [
         "Synthesize a structured Compass answer from the evidence bundle only.",
         "Every factual claim and card field must cite evidenceIds from the bundle.",
         "Do not invent ids, estimates, or statuses. Prefer status partial/insufficient_evidence when thin.",
         "Cards must use only values present in cited evidence fields.",
-      ].join("\n"),
+        useGoogleWorkaround
+          ? "Card field values must be JSON strings (e.g. \"active\", \"false\", \"null\")."
+          : "",
+      ]
+        .filter(Boolean)
+        .join("\n"),
       prompt: [
         `User question: ${input.text}`,
         `Evidence bundle JSON: ${JSON.stringify(evidenceBundle)}`,
@@ -182,10 +203,15 @@ async function runProviderTurn(
     if (!output) {
       throw new Error("empty synthesis");
     }
-    content = answerContentSchema.parse(output);
+    content = useGoogleWorkaround
+      ? normalizeGoogleSynthesis(output)
+      : answerContentSchema.parse(output);
   } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
     safeLog("warn", "turn.provider.synthesis_failed", {
       code: error instanceof Error ? error.name : "ERROR",
+      // Truncate; never log prompts/evidence bodies.
+      detail: message.slice(0, 180),
     });
     content = answerContentSchema.parse({
       status: evidenceIds.size ? "partial" : "insufficient_evidence",
@@ -461,4 +487,62 @@ function buildEnvelope(
     createdAt: new Date().toISOString(),
     content,
   });
+}
+
+/**
+ * Gemini OpenAPI subset does not support z.union. Keep card values as strings
+ * during model synthesis, then coerce into the real answer contract.
+ */
+const googleSynthesisContentSchema = answerContentSchema.extend({
+  cards: z
+    .array(
+      z.object({
+        kind: z.enum(["service", "troubleTicket", "serviceOrder", "estimate"]),
+        entityId: z.string().min(1).max(128),
+        title: z.string().max(160),
+        fields: z
+          .array(
+            z.object({
+              key: z.string().max(80),
+              label: z.string().max(100),
+              value: z.string().max(400),
+              evidenceId: z.string().min(1).max(128),
+              sourcePointer: z.string().max(300),
+            }),
+          )
+          .max(10),
+        evidenceIds: z.array(z.string().min(1).max(128)).max(16),
+      }),
+    )
+    .max(8),
+});
+
+function normalizeGoogleSynthesis(raw: unknown): AnswerContent {
+  const parsed = googleSynthesisContentSchema.parse(raw);
+  return answerContentSchema.parse({
+    ...parsed,
+    cards: parsed.cards.map((card) => ({
+      ...card,
+      fields: card.fields.map((field) => ({
+        ...field,
+        value: coerceCardValue(field.value),
+      })),
+    })),
+  });
+}
+
+function coerceCardValue(raw: string): string | number | boolean | null {
+  const trimmed = raw.trim();
+  if (trimmed === "" || trimmed === "null") return null;
+  if (trimmed === "true") return true;
+  if (trimmed === "false") return false;
+  if (/^-?\d+(\.\d+)?$/.test(trimmed)) return Number(trimmed);
+  // Strip surrounding quotes from JSON-ish strings.
+  if (
+    (trimmed.startsWith('"') && trimmed.endsWith('"')) ||
+    (trimmed.startsWith("'") && trimmed.endsWith("'"))
+  ) {
+    return trimmed.slice(1, -1);
+  }
+  return trimmed;
 }

@@ -467,6 +467,7 @@ export function mountApiRoutes(app: Hono, ctx: AppContext): void {
                 ctx.env.MODEL_MODE === "provider"
                   ? createLanguageModel(ctx.env)
                   : undefined,
+              modelProvider: ctx.env.MODEL_PROVIDER,
               maxDiscoverySteps: ctx.env.MAX_DISCOVERY_STEPS,
               finalAnswerMaxTokens: ctx.env.FINAL_ANSWER_MAX_TOKENS,
             },
