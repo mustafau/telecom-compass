@@ -2,18 +2,19 @@
 
 Commands that apply today, plus planned scripts for later milestones.
 
-## Current (M0+)
+## Current
 
 ```sh
 pnpm install --frozen-lockfile
 cp .env.example .env.local
-docker compose up -d postgres   # optional until M2 persistence is used
+docker compose up -d postgres   # optional; required for `pnpm db:migrate`
 pnpm test
+pnpm eval:offline
 pnpm typecheck
 pnpm lint
 pnpm build
-pnpm dev                        # Vite + Cloudflare plugin when workerd works on the host
-# or: pnpm dev:node             # Hono on Node without workerd
+pnpm dev:node                   # Hono on Node (recommended if workerd fails)
+# or: pnpm dev                  # Vite + Cloudflare plugin when workerd works
 pnpm cf:build
 pnpm test:cloudflare
 pnpm exec wrangler deploy --dry-run   # no publish

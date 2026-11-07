@@ -1,11 +1,15 @@
 :root {
   color-scheme: light;
+  --ink: #14201b;
+  --muted: #4d5c55;
+  --paper: #f3f6f2;
+  --panel: rgba(255, 255, 255, 0.82);
+  --line: #c5d2ca;
+  --accent: #0f6b4c;
+  --accent-2: #c45c26;
+  --danger: #8b1e1e;
+  --shadow: 0 18px 50px rgba(20, 32, 27, 0.08);
   font-family: "IBM Plex Sans", "Segoe UI", sans-serif;
-  line-height: 1.5;
-  color: #10233f;
-  background:
-    radial-gradient(circle at top left, #d9ecff 0%, transparent 42%),
-    linear-gradient(180deg, #f4f8fc 0%, #e7eef7 100%);
 }
 
 * {
@@ -15,48 +19,208 @@
 body {
   margin: 0;
   min-height: 100vh;
+  color: var(--ink);
+  background:
+    radial-gradient(circle at top left, rgba(15, 107, 76, 0.16), transparent 34%),
+    radial-gradient(circle at 80% 0%, rgba(196, 92, 38, 0.14), transparent 28%),
+    linear-gradient(180deg, #eef4ef 0%, var(--paper) 45%, #e7eee8 100%);
 }
 
-main {
-  max-width: 42rem;
+.app-shell {
+  max-width: 1200px;
   margin: 0 auto;
-  padding: 3rem 1.25rem;
+  padding: 1.5rem;
 }
 
-h1 {
-  font-family: "IBM Plex Serif", Georgia, serif;
-  font-weight: 600;
-  font-size: clamp(2rem, 4vw, 2.75rem);
-  margin: 0 0 0.5rem;
+.app-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  align-items: end;
+  margin-bottom: 1.25rem;
 }
 
-p {
-  margin: 0 0 1.25rem;
-  color: #3a4d66;
+.brand {
+  margin: 0;
+  font-family: "Fraunces", Georgia, serif;
+  font-size: clamp(2rem, 4vw, 3rem);
+  letter-spacing: -0.03em;
+}
+
+.subtitle,
+.session-box,
+label,
+.caps,
+.fixture-banner,
+.gaps {
+  color: var(--muted);
+}
+
+.panel {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  padding: 1rem 1.1rem;
+  box-shadow: var(--shadow);
+  backdrop-filter: blur(10px);
+}
+
+.layout {
+  display: grid;
+  grid-template-columns: 240px minmax(0, 1fr) 280px;
+  gap: 1rem;
+}
+
+.persona-row,
+.suggestions,
+.composer,
+.session-box {
+  display: flex;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+button,
+select,
+textarea {
+  font: inherit;
 }
 
 button {
-  appearance: none;
-  border: 0;
-  border-radius: 0.5rem;
-  background: #0b5fff;
-  color: white;
-  font: inherit;
-  font-weight: 600;
-  padding: 0.7rem 1rem;
+  border: 1px solid var(--line);
+  background: white;
+  color: var(--ink);
+  border-radius: 999px;
+  padding: 0.65rem 1rem;
   cursor: pointer;
 }
 
-button:disabled {
-  opacity: 0.6;
-  cursor: wait;
+button:hover {
+  border-color: var(--accent);
 }
 
-pre {
-  background: #0f1b2d;
-  color: #d7e6ff;
-  padding: 1rem;
-  border-radius: 0.75rem;
+button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.persona-row button {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  border-radius: 14px;
+  min-width: 160px;
+}
+
+.persona-row small {
+  color: var(--muted);
+}
+
+label {
+  display: grid;
+  gap: 0.35rem;
+  margin-bottom: 0.75rem;
+}
+
+select,
+textarea {
+  width: 100%;
+  border-radius: 12px;
+  border: 1px solid var(--line);
+  padding: 0.65rem 0.75rem;
+  background: white;
+}
+
+.transcript {
+  min-height: 320px;
+  display: grid;
+  gap: 0.75rem;
+  margin: 1rem 0;
+}
+
+.bubble {
+  padding: 0.85rem 1rem;
+  border-radius: 14px;
+  background: white;
+  border: 1px solid var(--line);
+}
+
+.bubble.user {
+  background: rgba(15, 107, 76, 0.08);
+}
+
+.bubble.progress {
+  color: var(--muted);
+  font-style: italic;
+}
+
+.bubble.error {
+  border-color: color-mix(in srgb, var(--danger) 40%, white);
+  color: var(--danger);
+}
+
+.card {
+  margin-top: 0.75rem;
+  padding-top: 0.75rem;
+  border-top: 1px dashed var(--line);
+}
+
+.card dl {
+  display: grid;
+  gap: 0.35rem;
+  margin: 0.5rem 0 0;
+}
+
+.card dt {
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+
+.card dd {
+  margin: 0;
+  font-weight: 600;
+}
+
+.linkish {
+  border: 0;
+  background: transparent;
+  color: var(--accent);
+  padding: 0 0.25rem;
+  text-decoration: underline;
+}
+
+.fixture-banner {
+  margin-top: 1rem;
+  padding: 0.65rem 0.75rem;
+  border-radius: 12px;
+  background: rgba(196, 92, 38, 0.1);
+  border: 1px solid rgba(196, 92, 38, 0.25);
+  color: var(--accent-2);
+  font-weight: 600;
+}
+
+.caps {
+  list-style: none;
+  padding: 0;
+  font-size: 0.85rem;
+}
+
+.caps li[data-on="0"] {
+  opacity: 0.55;
+}
+
+.evidence pre {
   overflow: auto;
-  min-height: 8rem;
+  max-height: 60vh;
+  font-size: 0.8rem;
+}
+
+.error {
+  color: var(--danger);
+}
+
+@media (max-width: 960px) {
+  .layout {
+    grid-template-columns: 1fr;
+  }
 }

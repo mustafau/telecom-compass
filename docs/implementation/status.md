@@ -2,90 +2,52 @@
 
 Updated: 2026-11-06.
 
-M0 foundation and M1 TMF profiles/adapters are implemented locally. Later milestones are planned; design docs describe intended behavior until each milestone lands.
+M0–M7 local slices are implemented. Live OIDC IdP, live TMF production profiles, Hyperdrive-backed Postgres in Workers, and Playwright browser e2e remain unverified / incomplete relative to full production launch gates.
 
 | Milestone | State | Evidence |
 | --- | --- | --- |
-| M0 Foundation | Complete (local) | `pnpm test` includes env/proof/UI stream/client boundary; typecheck; lint; build; wrangler dry-run |
-| M1 TMF profiles/adapters | Complete (local) | Profile schema/loader/revision; contract lock; GET transport; adapters; fixture A/B (+C/D); relationship plans; `pnpm profile:check`; `pnpm setup:local`; tests 24/24 |
-| M2 Identity/persistence | Not started | — |
-| M3 Tools/evidence | Not started | — |
-| M4 Agent/API | Not started | — |
-| M5 UI | Not started | — |
-| M6 Evaluation/operations | Not started | — |
-| M7 Release polish | Not started | — |
+| M0 Foundation | Complete (local) | Proof pipeline, health, build, wrangler dry-run |
+| M1 TMF profiles/adapters | Complete (local) | Fixture A/B, contract lock, transport, `profile:check`, `setup:local` |
+| M2 Identity/persistence | Complete (local) | Local personas, OIDC helpers + mocked tests, memory store with lease/idempotency, SQL migration `0001_m2_core.sql` |
+| M3 Tools/evidence | Complete (local) | Domain services, evidence ledger, audience projection, optional Markdown knowledge |
+| M4 Agent/API | Complete (local) | Scripted turn runner, conversation/turn/evidence/feedback routes, UI stream parts |
+| M5 Product UI | Complete (local, API journeys) | React chat UI with login, scope, capabilities, evidence drawer; **Playwright browser suite not added** — operator/customer journeys covered by HTTP integration tests |
+| M6 Evaluation/operations | Complete (local) | `pnpm eval:offline`, CI workflow, Docker Node image notes, health live/ready, retention command, safe telemetry helper |
+| M7 Release polish | Complete (local) | README/status/plan updated; Forge example commands refreshed; production integration checklist added |
 
 ## Resolved dependency matrix
 
-Resolved 2026-11-01 against npm registry + Cloudflare vite-react-template alignment; M1 added `yaml@2.8.1`. Exact direct versions are pinned in `package.json` / `pnpm-lock.yaml`.
-
 | Package | Version | Evidence |
 | --- | --- | --- |
-| Node | 22.23.4 (engines `>=22.12.0`) | local runtime |
-| pnpm | 10.18.3 | `packageManager` field |
-| TypeScript | 5.9.3 | typecheck passes |
-| Hono | 4.13.16 | Worker/Node HTTP + fixture servers |
-| @hono/node-server | 2.1.5 | Node adapter |
-| Vite | 7.3.7 | CF plugin peer `^6 \|\| ^7 \|\| ^8` |
-| @cloudflare/vite-plugin | 1.66.0 | production dual build |
-| Wrangler | 4.156.0 | dry-run deploy |
-| React / React DOM | 19.2.1 | UI |
-| @vitejs/plugin-react | 5.1.1 | client build |
-| AI SDK (`ai`) | 7.0.159 | native tools + Output.object + UI stream |
-| @ai-sdk/provider | 4.0.35 | LanguageModelV3 types / mocks |
-| @ai-sdk/openai | 4.0.106 | provider path (unused in scripted mode) |
-| @ai-sdk/react | 4.0.163 | reserved for chat UI |
-| Zod | 3.25.76 | env + profile + tool schemas |
-| yaml | 2.8.1 | deployment profile loader |
-| Drizzle ORM / Kit | 0.45.4 / 0.31.11 | schema placeholder + config |
-| pg / @types/pg | 8.23.1 / 8.23.1 | Postgres driver |
-| Vitest | 3.2.4 | unit + integration + cloudflare entry tests |
-| ESLint | 9.39.2 | lint passes |
-| Prettier | 3.9.10 | formatter |
-
-Compatibility notes:
-- AI SDK 7 accepts Zod `^3.25.76 \|\| ^4.1.8`; pins Zod 3 for ecosystem stability.
-- Cloudflare Vite plugin dual-builds Worker + client assets; `wrangler deploy` uses the generated redirected config under `dist/client/telecom_compass/`.
-- `workerd` postinstall failed binary validation on this host (macOS 12.6 / missing `libc++.1.dylib`). Wrangler dry-run still succeeded; live `vite`/`workerd` preview is unverified on this machine. Prefer macOS 13.5+ or Linux glibc 2.35+ for Worker runtime preview.
+| Node | 22.x (engines `>=22.12.0`) | local/CI |
+| pnpm | 10.18.3 | `packageManager` |
+| TypeScript | 5.9.3 | typecheck |
+| Hono | 4.13.16 | HTTP + fixtures |
+| Vite / React | 7.3.7 / 19.2.1 | UI |
+| AI SDK (`ai`) | 7.0.159 | tools + UI stream |
+| Zod | 3.25.76 | schemas |
+| yaml | 2.8.1 | profiles/personas |
+| Drizzle / pg | 0.45.4 / 8.23.1 | schema + migrate |
+| Vitest | 3.2.4 | unit + integration |
 
 ## Supported TMF matrix
 
-Fixture-backed adapters (consumed fields only). Contract stubs are **original Compass fixtures**, not TM Forum official OpenAPI redistributions. Official/approved live editions remain to be acquired per deployment.
+See M1 fixture adapters in `config/fixtures/`. Official TM Forum contract redistribution is not claimed; fixture stubs are original Compass documents. Sandbox profile from `setup:local` is get-by-id only until filters are verified.
 
-| API | Major | Adapter | Contract ref | Operations tested | Notes |
-| --- | --- | --- | --- | --- | --- |
-| TMF629 | v4 / v5 | `tmf629-v4` / `tmf629-v5` | `fixture-tmf629-v*-compass` | `customer.get` | relatedParty direct + nested |
-| TMF637 | v4 / v5 | `tmf637-v4` / `tmf637-v5` | `fixture-tmf637-v*-compass` | `product.get`, `product.listByCustomer` | realizingService(s) |
-| TMF638 | v5 | `tmf638-v5` | `fixture-tmf638-v5-compass` | `service.get` | No v4 adapter (edition not claimed) |
-| TMF639 | v4 / v5 | `tmf639-v4` / `tmf639-v5` | `fixture-tmf639-v*-compass` | `resource.get` | |
-| TMF621 | v4 / v5 | `tmf621-v4` / `tmf621-v5` | `fixture-tmf621-v*-compass` | `ticket.get`, `ticket.listByService` | relatedEntity direct + nested |
-| TMF641 | v4 / v5 | `tmf641-v4` / `tmf641-v5` | `fixture-tmf641-v*-compass` | `order.get` | |
+## Persistence note
 
-Sandbox local profile (`pnpm setup:local`) registers get-by-id operations only; filtered relationship capabilities stay disabled until verified against that backend.
-
-## Required deployment inputs
-
-- Deployment/API base URLs and approved exact contracts/versions.
-- Authentication bindings and secret provisioning method for each API.
-- Proven filtering/pagination behavior and relationship mappings.
-- OIDC issuer/client configuration and verified tenant/account/entitlement mapping.
-- Approved model provider/model/region and data-handling configuration.
-- Optional knowledge-source ACLs and enterprise document retrieval interface.
-- Hosting ingress, secret management, database, retention, telemetry and rollout owner.
-- Hyperdrive id + externally hosted PostgreSQL for Cloudflare demo/production.
+Runtime default for local/scripted tests is the **in-memory store** (same semantics: tenant scope, idempotency, leases). PostgreSQL schema/migration is checked in under `migrations/` for Node/Compose; Cloudflare Hyperdrive wiring remains an operations input and is not exercised in offline CI.
 
 ## Verification log
 
-- 2026-11-01 local: `pnpm install` with onlyBuiltDependencies `[esbuild, workerd, sharp, unrs-resolver]`.
-- 2026-11-01 local: M0 tests, typecheck, lint, build, client secret scan, cloudflare health, wrangler dry-run.
-- 2026-11-06 local: M1 — `pnpm test` → 24 passed (profile/transport/normalize/fixtures A/B/profile-check + M0).
-- 2026-11-06 local: `pnpm typecheck` → pass; `pnpm lint` → pass.
-- 2026-11-06 local: `pnpm profile:check --profile fixture-a` / `fixture-b` offline → ok.
-- 2026-11-06 local: interactive `workerd` preview **not verified** on macOS 12.6.
-- 2026-11-06 local: live sandbox `setup:local` against a running backend **optional**; script writes profile with placeholders when unreachable.
+- 2026-11-06: `pnpm test` → 38 passed; `pnpm typecheck`; `pnpm lint`
+- 2026-11-06: `pnpm eval:offline` (scripted fixture turns + recorded gates)
+- Playwright browser e2e: **not run / not packaged**
+- Live OIDC / live TMF / Worker+Hyperdrive: **unverified**
+- No Cloudflare account deployment performed
 
-## Clarification incorporated
+## Clarifications
 
-Telecom API Sandbox is the default configured local-development backend. Application logic remains deployment-independent; automated tests use independent fixture profiles under `config/fixtures/`. `pnpm setup:local` is setup-time only and never becomes a runtime `/catalog` dependency.
-
-Native Cloudflare Workers via Hono (ADR 0009) is the primary deployment target. Hyperdrive/external PostgreSQL and authenticated hosted demo mode remain planned. No Cloudflare account deployment has been performed from this repository.
+- Local fixture auth cannot start in demo/production and cannot activate live deployments.
+- Application code does not call sandbox `/catalog` at runtime.
+- Customer launch still requires [production-integration-checklist.md](../operations/production-integration-checklist.md).

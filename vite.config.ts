@@ -3,8 +3,10 @@ import { cloudflare } from "@cloudflare/vite-plugin";
 import react from "@vitejs/plugin-react";
 import { defineConfig } from "vite";
 
+const nodeDev = process.env.COMPASS_VITE_NODE === "1";
+
 export default defineConfig({
-  plugins: [react(), cloudflare()],
+  plugins: [react(), ...(nodeDev ? [] : [cloudflare()])],
   resolve: {
     alias: {
       "@contracts": path.resolve(__dirname, "src/contracts"),
