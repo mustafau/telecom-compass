@@ -157,7 +157,7 @@ export async function runTurn(
 
   progress("synthesize", "Validating answer");
   const evidenceIds = new Set(ledger.freeze().map((e) => e.id));
-  const content = synthesize(deps, diagnosis, serviceDetails, evidenceIds, lower);
+  const content = synthesize(diagnosis, serviceDetails, evidenceIds, lower);
 
   const citation = validateAnswerCitations(content, evidenceIds);
   if (!citation.ok) {
@@ -174,7 +174,6 @@ export async function runTurn(
 }
 
 function synthesize(
-  deps: TurnRunnerDeps,
   diagnosis: Awaited<ReturnType<DomainServices["diagnoseService"]>> | undefined,
   serviceDetails: Awaited<ReturnType<DomainServices["getServiceDetails"]>> | undefined,
   evidenceIds: Set<string>,
@@ -183,9 +182,13 @@ function synthesize(
   if (diagnosis && diagnosis.status !== "unavailable") {
     const service = diagnosis.data.service;
     const ev0 = diagnosis.evidenceIds[0]!;
-    const claims = [
+    const claims: Array<{
+      kind: "observation" | "inference" | "guidance" | "clarification";
+      text: string;
+      evidenceIds: string[];
+    }> = [
       {
-        kind: "observation" as const,
+        kind: "observation",
         text: `Service ${service.ref.id} lifecycle is ${service.lifecycleState?.raw ?? "unknown"}; enabled=${String(service.enabled)}.`,
         evidenceIds: [ev0],
       },

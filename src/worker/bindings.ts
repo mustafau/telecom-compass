@@ -5,6 +5,7 @@ export type WorkerBindings = {
   APP_MODE?: string;
   AUTH_MODE?: string;
   MODEL_MODE?: string;
+  APP_ORIGIN?: string;
   MODEL_API_KEY?: string;
   DATABASE_URL?: string;
 };
