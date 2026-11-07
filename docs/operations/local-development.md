@@ -33,7 +33,7 @@ pnpm setup:local                 # writes config/deployments.local.yaml + contra
 pnpm profile:check --profile telecom-api-sandbox \
   --deployments config/deployments.local.yaml \
   --lock config/contracts.lock.local.json
-pnpm db:migrate                  # when persistence is used (M2+)
+pnpm db:migrate                  # reads DATABASE_URL from .env.local (Compose default in .env.example)
 pnpm dev
 ```
 

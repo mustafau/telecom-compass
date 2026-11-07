@@ -2,11 +2,15 @@ import "../guard";
 import { readdir, readFile } from "node:fs/promises";
 import path from "node:path";
 import pg from "pg";
+import { loadLocalDotenv } from "../config/load-dotenv";
 
 async function main(): Promise<void> {
+  loadLocalDotenv();
   const url = process.env.DATABASE_URL;
   if (!url) {
-    throw new Error("DATABASE_URL is required for migrations");
+    throw new Error(
+      "DATABASE_URL is required for migrations. Copy .env.example to .env.local (includes the Compose default) or export DATABASE_URL.",
+    );
   }
   const client = new pg.Client({ connectionString: url });
   await client.connect();

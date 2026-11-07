@@ -6,7 +6,7 @@ import {
   validateAnswerCitations,
   type AnswerEnvelope,
 } from "../../contracts/answer";
-import type { MemoryStore } from "../db/memory-store";
+import type { CompassStore } from "../db/types";
 import { createEvidenceLedger } from "../evidence/ledger";
 import { createRunBudget, type ExecutionContext } from "../domain/execution";
 import type { DomainServices } from "../domain/services/catalog";
@@ -20,7 +20,7 @@ export type TurnProgressEvent = {
 };
 
 export type TurnRunnerDeps = {
-  store: MemoryStore;
+  store: CompassStore;
   services: DomainServices;
   profile: CheckedProfile;
   environment: "fixture" | "live";
@@ -69,7 +69,7 @@ export async function runTurn(
     input.onProgress?.({ sequence: seq, stage, label });
   };
 
-  const turn = deps.store.turns.get(input.turnId);
+  const turn = await deps.store.getTurn(input.principal.tenantId, input.turnId);
   if (!turn || turn.leaseToken !== input.leaseToken) {
     throw Object.assign(new Error("Lease mismatch"), { code: "LEASE_MISMATCH" });
   }
@@ -151,7 +151,8 @@ export async function runTurn(
     throw error;
   }
 
-  if (turn.cancelRequested || budget.signal.aborted) {
+  const latest = await deps.store.getTurn(input.principal.tenantId, input.turnId);
+  if (latest?.cancelRequested || budget.signal.aborted) {
     throw Object.assign(new Error("Cancelled"), { code: "CANCELLED" });
   }
 

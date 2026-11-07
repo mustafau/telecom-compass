@@ -1,7 +1,7 @@
 import "../guard";
 import { randomBytes } from "node:crypto";
 import type { AppEnv } from "../config/env";
-import type { MemoryStore } from "../db/memory-store";
+import type { CompassStore } from "../db/types";
 import type { Principal, SessionRecord } from "./types";
 
 export const SESSION_COOKIE = "compass_session";
@@ -10,19 +10,19 @@ export function createSessionToken(): string {
   return randomBytes(32).toString("base64url");
 }
 
-export function issueSession(
-  store: MemoryStore,
+export async function issueSession(
+  store: CompassStore,
   principal: Principal,
-): { token: string; session: SessionRecord } {
+): Promise<{ token: string; session: SessionRecord }> {
   const token = createSessionToken();
-  const session = store.createSession(principal, token);
+  const session = await store.createSession(principal, token);
   return { token, session };
 }
 
-export function readSession(
-  store: MemoryStore,
+export async function readSession(
+  store: CompassStore,
   cookieHeader: string | undefined,
-): SessionRecord | null {
+): Promise<SessionRecord | null> {
   const token = parseCookie(cookieHeader, SESSION_COOKIE);
   if (!token) return null;
   return store.getSessionByToken(token);

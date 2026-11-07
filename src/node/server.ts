@@ -7,6 +7,7 @@ import { fileURLToPath } from "node:url";
 import { serve } from "@hono/node-server";
 import { serveStatic } from "@hono/node-server/serve-static";
 import { createServer as createViteServer } from "vite";
+import { loadLocalDotenv } from "../server/config/load-dotenv";
 import { loadEnv } from "../server/config/env";
 import { createApp } from "../worker/app";
 
@@ -14,6 +15,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(__dirname, "../..");
 
 async function main(): Promise<void> {
+  loadLocalDotenv(repoRoot);
   const env = loadEnv();
   const app = createApp();
   const production = process.env.NODE_ENV === "production";

@@ -76,7 +76,7 @@ export function createMarkdownKnowledgeSource(rootDir: string) {
       const selected = hits.slice(0, Math.min(5, Math.max(1, limit)));
       const evidenceIds: string[] = [];
       for (const hit of selected) {
-        const ev = ledger.record({
+        const ev = await ledger.record({
           kind: "document",
           fields: { title: hit.title, excerpt: hit.excerpt, score: hit.score },
           visibility: ctx.principal.audience,

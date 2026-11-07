@@ -1,112 +1,29 @@
 import "../guard";
 import { createHash, randomUUID } from "node:crypto";
 import type { Principal, SessionRecord } from "../auth/types";
-
-export type TurnState =
-  | "running"
-  | "completed"
-  | "partial"
-  | "failed"
-  | "cancelled"
-  | "interrupted";
-
-export type ConversationRow = {
-  id: string;
-  tenantId: string;
-  deploymentId: string;
-  ownerSubject: string;
-  audience: string;
-  targetCustomerId: string | null;
-  title: string;
-  revision: number;
-  activeTurnId: string | null;
-  createdAt: Date;
-  updatedAt: Date;
-  deletedAt: Date | null;
-};
-
-export type TurnRow = {
-  id: string;
-  tenantId: string;
-  conversationId: string;
-  clientTurnId: string;
-  requestHash: string;
-  profileRevision: string;
-  policyVersion: string;
-  state: TurnState;
-  leaseToken: string;
-  leaseExpiresAt: Date;
-  cancelRequested: boolean;
-  startedAt: Date;
-  finishedAt: Date | null;
-  errorCode: string | null;
-  modelProvider: string | null;
-  modelId: string | null;
-  answerJson: Record<string, unknown> | null;
-  budgetsJson: Record<string, unknown>;
-};
-
-export type MessageRow = {
-  id: string;
-  tenantId: string;
-  conversationId: string;
-  turnId: string;
-  sequence: number;
-  role: "user" | "assistant";
-  contentJson: Record<string, unknown>;
-  contentSchemaVersion: string;
-  createdAt: Date;
-};
-
-export type EvidenceRow = {
-  id: string;
-  tenantId: string;
-  conversationId: string;
-  turnId: string;
-  deploymentId: string;
-  profileRevision: string;
-  kind: string;
-  entityType: string | null;
-  entityId: string | null;
-  sanitizedFields: Record<string, unknown>;
-  provenance: Record<string, unknown>;
-  visibility: string;
-  retrievedAt: Date;
-  sourceUpdatedAt: Date | null;
-  expiresAt: Date | null;
-  sourceLocator: string;
-};
-
-export type AcceptTurnInput = {
-  conversationId: string;
-  tenantId: string;
-  ownerSubject: string;
-  clientTurnId: string;
-  expectedRevision: number;
-  text: string;
-  requestHash: string;
-  profileRevision: string;
-  policyVersion: string;
-  leaseMs?: number;
-  now?: Date;
-};
-
-export type AcceptTurnResult =
-  | { status: "accepted"; turn: TurnRow; conversation: ConversationRow; replay: false }
-  | { status: "replay"; turn: TurnRow; conversation: ConversationRow; replay: true }
-  | { status: "conflict"; code: "REVISION_CONFLICT" | "TURN_IN_PROGRESS" | "IDEMPOTENCY_CONFLICT" };
+import type {
+  AcceptTurnInput,
+  AcceptTurnResult,
+  CompassStore,
+  ConversationRow,
+  EvidenceRow,
+  FeedbackRow,
+  FinalizeTurnInput,
+  FinalizeTurnResult,
+  MessageRow,
+  TurnRow,
+} from "./types";
 
 /** Deterministic in-memory store for unit/integration tests and local scripted mode. */
-export class MemoryStore {
-  sessions = new Map<string, SessionRecord>();
-  conversations = new Map<string, ConversationRow>();
-  turns = new Map<string, TurnRow>();
-  messages: MessageRow[] = [];
-  evidence: EvidenceRow[] = [];
-  feedback: Array<Record<string, unknown>> = [];
-  audit: Array<Record<string, unknown>> = [];
+export class MemoryStore implements CompassStore {
+  private sessions = new Map<string, SessionRecord>();
+  private conversations = new Map<string, ConversationRow>();
+  private turns = new Map<string, TurnRow>();
+  private messages: MessageRow[] = [];
+  private evidence: EvidenceRow[] = [];
+  private feedback: FeedbackRow[] = [];
 
-  createSession(principal: Principal, tokenPlain: string, now = new Date()): SessionRecord {
+  async createSession(principal: Principal, tokenPlain: string, now = new Date()): Promise<SessionRecord> {
     const idleMs = 30 * 60_000;
     const absoluteMs = 8 * 60 * 60_000;
     const record: SessionRecord = {
@@ -121,7 +38,7 @@ export class MemoryStore {
     return record;
   }
 
-  getSessionByToken(tokenPlain: string, now = new Date()): SessionRecord | null {
+  async getSessionByToken(tokenPlain: string, now = new Date()): Promise<SessionRecord | null> {
     const record = this.sessions.get(hashToken(tokenPlain));
     if (!record) return null;
     if (record.expiresAt <= now || record.idleExpiresAt <= now) {
@@ -132,18 +49,18 @@ export class MemoryStore {
     return record;
   }
 
-  revokeSession(tokenPlain: string): void {
+  async revokeSession(tokenPlain: string): Promise<void> {
     this.sessions.delete(hashToken(tokenPlain));
   }
 
-  createConversation(input: {
+  async createConversation(input: {
     tenantId: string;
     deploymentId: string;
     ownerSubject: string;
     audience: string;
     targetCustomerId: string | null;
     title?: string;
-  }): ConversationRow {
+  }): Promise<ConversationRow> {
     const now = new Date();
     const row: ConversationRow = {
       id: randomUUID(),
@@ -163,21 +80,21 @@ export class MemoryStore {
     return row;
   }
 
-  getConversation(tenantId: string, id: string): ConversationRow | null {
+  async getConversation(tenantId: string, id: string): Promise<ConversationRow | null> {
     const row = this.conversations.get(id);
     if (!row || row.tenantId !== tenantId || row.deletedAt) return null;
     return row;
   }
 
-  listConversations(tenantId: string, ownerSubject: string): ConversationRow[] {
+  async listConversations(tenantId: string, ownerSubject: string): Promise<ConversationRow[]> {
     return [...this.conversations.values()]
       .filter((c) => c.tenantId === tenantId && c.ownerSubject === ownerSubject && !c.deletedAt)
       .sort((a, b) => b.updatedAt.getTime() - a.updatedAt.getTime());
   }
 
-  acceptTurn(input: AcceptTurnInput): AcceptTurnResult {
+  async acceptTurn(input: AcceptTurnInput): Promise<AcceptTurnResult> {
     const now = input.now ?? new Date();
-    const conversation = this.getConversation(input.tenantId, input.conversationId);
+    const conversation = await this.getConversation(input.tenantId, input.conversationId);
     if (!conversation || conversation.ownerSubject !== input.ownerSubject) {
       throw new Error("Conversation not found");
     }
@@ -227,7 +144,8 @@ export class MemoryStore {
     };
     this.turns.set(turn.id, turn);
 
-    const sequence = this.messages.filter((m) => m.conversationId === conversation.id).length + 1;
+    const sequence =
+      this.messages.filter((m) => m.conversationId === conversation.id).length + 1;
     this.messages.push({
       id: randomUUID(),
       tenantId: input.tenantId,
@@ -246,7 +164,18 @@ export class MemoryStore {
     return { status: "accepted", turn, conversation, replay: false };
   }
 
-  heartbeat(turnId: string, leaseToken: string, now = new Date(), leaseMs = 20_000): boolean {
+  async getTurn(tenantId: string, turnId: string): Promise<TurnRow | null> {
+    const turn = this.turns.get(turnId);
+    if (!turn || turn.tenantId !== tenantId) return null;
+    return turn;
+  }
+
+  async heartbeat(
+    turnId: string,
+    leaseToken: string,
+    now = new Date(),
+    leaseMs = 20_000,
+  ): Promise<boolean> {
     const turn = this.turns.get(turnId);
     if (!turn || turn.leaseToken !== leaseToken || turn.state !== "running") return false;
     if (turn.leaseExpiresAt <= now) return false;
@@ -254,21 +183,14 @@ export class MemoryStore {
     return true;
   }
 
-  requestCancel(turnId: string, tenantId: string): TurnRow | null {
+  async requestCancel(turnId: string, tenantId: string): Promise<TurnRow | null> {
     const turn = this.turns.get(turnId);
     if (!turn || turn.tenantId !== tenantId) return null;
     turn.cancelRequested = true;
     return turn;
   }
 
-  finalizeTurn(input: {
-    turnId: string;
-    leaseToken: string;
-    state: Exclude<TurnState, "running">;
-    answerJson?: Record<string, unknown> | null;
-    errorCode?: string | null;
-    now?: Date;
-  }): { ok: true; turn: TurnRow; conversation: ConversationRow } | { ok: false; code: string } {
+  async finalizeTurn(input: FinalizeTurnInput): Promise<FinalizeTurnResult> {
     const now = input.now ?? new Date();
     const turn = this.turns.get(input.turnId);
     if (!turn) return { ok: false, code: "NOT_FOUND" };
@@ -278,7 +200,6 @@ export class MemoryStore {
       return { ok: true, turn, conversation };
     }
     if (turn.cancelRequested && input.state !== "cancelled") {
-      // Prefer cancellation if requested before final answer commit.
       turn.state = "cancelled";
     } else {
       turn.state = input.state;
@@ -292,7 +213,8 @@ export class MemoryStore {
     conversation.updatedAt = now;
 
     if (turn.answerJson && (turn.state === "completed" || turn.state === "partial")) {
-      const sequence = this.messages.filter((m) => m.conversationId === conversation.id).length + 1;
+      const sequence =
+        this.messages.filter((m) => m.conversationId === conversation.id).length + 1;
       this.messages.push({
         id: randomUUID(),
         tenantId: turn.tenantId,
@@ -308,7 +230,7 @@ export class MemoryStore {
     return { ok: true, turn, conversation };
   }
 
-  recoverExpiredLeases(now = new Date()): number {
+  async recoverExpiredLeases(now = new Date()): Promise<number> {
     let count = 0;
     for (const turn of this.turns.values()) {
       if (turn.state === "running" && turn.leaseExpiresAt <= now) {
@@ -327,13 +249,23 @@ export class MemoryStore {
     return count;
   }
 
-  addEvidence(row: Omit<EvidenceRow, "id"> & { id?: string }): EvidenceRow {
+  async listMessages(tenantId: string, conversationId: string): Promise<MessageRow[]> {
+    return this.messages
+      .filter((m) => m.tenantId === tenantId && m.conversationId === conversationId)
+      .sort((a, b) => a.sequence - b.sequence);
+  }
+
+  async addEvidence(row: Omit<EvidenceRow, "id"> & { id?: string }): Promise<EvidenceRow> {
     const full: EvidenceRow = { ...row, id: row.id ?? randomUUID() };
     this.evidence.push(full);
     return full;
   }
 
-  getEvidence(tenantId: string, conversationId: string, evidenceId: string): EvidenceRow | null {
+  async getEvidence(
+    tenantId: string,
+    conversationId: string,
+    evidenceId: string,
+  ): Promise<EvidenceRow | null> {
     return (
       this.evidence.find(
         (e) =>
@@ -344,12 +276,51 @@ export class MemoryStore {
     );
   }
 
-  listEvidenceForTurn(tenantId: string, turnId: string): EvidenceRow[] {
+  async listEvidenceForTurn(tenantId: string, turnId: string): Promise<EvidenceRow[]> {
     return this.evidence.filter((e) => e.tenantId === tenantId && e.turnId === turnId);
   }
 
-  deleteConversation(tenantId: string, id: string, ownerSubject: string): boolean {
-    const row = this.getConversation(tenantId, id);
+  async upsertFeedback(input: {
+    tenantId: string;
+    conversationId: string;
+    turnId: string;
+    subject: string;
+    rating: string;
+    reason?: string;
+    comment?: string;
+  }): Promise<FeedbackRow> {
+    const existing = this.feedback.find(
+      (f) =>
+        f.tenantId === input.tenantId &&
+        f.turnId === input.turnId &&
+        f.subject === input.subject,
+    );
+    if (existing) {
+      existing.rating = input.rating;
+      existing.reason = input.reason ?? null;
+      existing.comment = input.comment ?? null;
+      return existing;
+    }
+    const row: FeedbackRow = {
+      id: randomUUID(),
+      tenantId: input.tenantId,
+      conversationId: input.conversationId,
+      turnId: input.turnId,
+      subject: input.subject,
+      rating: input.rating,
+      reason: input.reason ?? null,
+      comment: input.comment ?? null,
+    };
+    this.feedback.push(row);
+    return row;
+  }
+
+  async deleteConversation(
+    tenantId: string,
+    id: string,
+    ownerSubject: string,
+  ): Promise<boolean> {
+    const row = await this.getConversation(tenantId, id);
     if (!row || row.ownerSubject !== ownerSubject) return false;
     if (row.activeTurnId) {
       const active = this.turns.get(row.activeTurnId);
@@ -359,7 +330,7 @@ export class MemoryStore {
     return true;
   }
 
-  retainOlderThan(days: number, now = new Date()): number {
+  async retainOlderThan(days: number, now = new Date()): Promise<number> {
     const cutoff = now.getTime() - days * 24 * 60 * 60_000;
     let removed = 0;
     for (const [id, c] of this.conversations) {

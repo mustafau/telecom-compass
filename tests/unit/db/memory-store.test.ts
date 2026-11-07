@@ -15,29 +15,29 @@ const principal: Principal = {
 };
 
 describe("memory store persistence semantics", () => {
-  it("keeps tenants isolated for identical conversation resource shapes", () => {
+  it("keeps tenants isolated for identical conversation resource shapes", async () => {
     const store = new MemoryStore();
-    const a = store.createConversation({
+    const a = await store.createConversation({
       tenantId: "tenant-a",
       deploymentId: "fixture-a",
       ownerSubject: "op-a",
       audience: "operator",
       targetCustomerId: "cust-100",
     });
-    const b = store.createConversation({
+    const b = await store.createConversation({
       tenantId: "tenant-b",
       deploymentId: "fixture-a",
       ownerSubject: "op-b",
       audience: "operator",
       targetCustomerId: "cust-100",
     });
-    expect(store.getConversation("tenant-a", b.id)).toBeNull();
-    expect(store.getConversation("tenant-b", a.id)).toBeNull();
+    expect(await store.getConversation("tenant-a", b.id)).toBeNull();
+    expect(await store.getConversation("tenant-b", a.id)).toBeNull();
   });
 
-  it("replays identical clientTurnId fingerprints and conflicts on mismatch", () => {
+  it("replays identical clientTurnId fingerprints and conflicts on mismatch", async () => {
     const store = new MemoryStore();
-    const conversation = store.createConversation({
+    const conversation = await store.createConversation({
       tenantId: principal.tenantId,
       deploymentId: "fixture-a",
       ownerSubject: principal.subject,
@@ -45,7 +45,7 @@ describe("memory store persistence semantics", () => {
       targetCustomerId: "cust-100",
     });
     const hash = hashRequest("hello", 0);
-    const first = store.acceptTurn({
+    const first = await store.acceptTurn({
       conversationId: conversation.id,
       tenantId: principal.tenantId,
       ownerSubject: principal.subject,
@@ -57,7 +57,7 @@ describe("memory store persistence semantics", () => {
       policyVersion: "v1",
     });
     expect(first.status).toBe("accepted");
-    const replay = store.acceptTurn({
+    const replay = await store.acceptTurn({
       conversationId: conversation.id,
       tenantId: principal.tenantId,
       ownerSubject: principal.subject,
@@ -69,7 +69,7 @@ describe("memory store persistence semantics", () => {
       policyVersion: "v1",
     });
     expect(replay.status).toBe("replay");
-    const conflict = store.acceptTurn({
+    const conflict = await store.acceptTurn({
       conversationId: conversation.id,
       tenantId: principal.tenantId,
       ownerSubject: principal.subject,
@@ -83,16 +83,16 @@ describe("memory store persistence semantics", () => {
     expect(conflict).toEqual({ status: "conflict", code: "IDEMPOTENCY_CONFLICT" });
   });
 
-  it("fences finalize on lease token and recovers expired leases", () => {
+  it("fences finalize on lease token and recovers expired leases", async () => {
     const store = new MemoryStore();
-    const conversation = store.createConversation({
+    const conversation = await store.createConversation({
       tenantId: principal.tenantId,
       deploymentId: "fixture-a",
       ownerSubject: principal.subject,
       audience: "operator",
       targetCustomerId: "cust-100",
     });
-    const accepted = store.acceptTurn({
+    const accepted = await store.acceptTurn({
       conversationId: conversation.id,
       tenantId: principal.tenantId,
       ownerSubject: principal.subject,
@@ -106,28 +106,28 @@ describe("memory store persistence semantics", () => {
     });
     expect(accepted.status).toBe("accepted");
     if (accepted.status !== "accepted") return;
-    const bad = store.finalizeTurn({
+    const bad = await store.finalizeTurn({
       turnId: accepted.turn.id,
       leaseToken: "00000000-0000-0000-0000-000000000000",
       state: "completed",
       answerJson: { ok: true },
     });
     expect(bad.ok).toBe(false);
-    const recovered = store.recoverExpiredLeases(new Date(Date.now() + 1000));
+    const recovered = await store.recoverExpiredLeases(new Date(Date.now() + 1000));
     expect(recovered).toBe(1);
-    expect(store.turns.get(accepted.turn.id)?.state).toBe("interrupted");
+    expect((await store.getTurn(principal.tenantId, accepted.turn.id))?.state).toBe("interrupted");
   });
 
-  it("rejects concurrent active turns", () => {
+  it("rejects concurrent active turns", async () => {
     const store = new MemoryStore();
-    const conversation = store.createConversation({
+    const conversation = await store.createConversation({
       tenantId: principal.tenantId,
       deploymentId: "fixture-a",
       ownerSubject: principal.subject,
       audience: "operator",
       targetCustomerId: "cust-100",
     });
-    const first = store.acceptTurn({
+    const first = await store.acceptTurn({
       conversationId: conversation.id,
       tenantId: principal.tenantId,
       ownerSubject: principal.subject,
@@ -139,7 +139,7 @@ describe("memory store persistence semantics", () => {
       policyVersion: "v1",
     });
     expect(first.status).toBe("accepted");
-    const second = store.acceptTurn({
+    const second = await store.acceptTurn({
       conversationId: conversation.id,
       tenantId: principal.tenantId,
       ownerSubject: principal.subject,

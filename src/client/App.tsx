@@ -14,6 +14,14 @@ type Conversation = {
   revision: number;
   scope: { deploymentId: string; targetCustomerId: string };
 };
+type ConversationSummary = {
+  id: string;
+  title: string;
+  deploymentId: string;
+  targetCustomerId: string | null;
+  revision: number;
+  updatedAt: string;
+};
 type ChatItem =
   | { kind: "user"; text: string }
   | { kind: "progress"; label: string }
@@ -22,12 +30,30 @@ type ChatItem =
 
 const ORIGIN = typeof window !== "undefined" ? window.location.origin : "http://localhost:3000";
 
+function messagesToItems(
+  messages: Array<{ role: string; content: Record<string, unknown> }>,
+): ChatItem[] {
+  const items: ChatItem[] = [];
+  for (const message of messages) {
+    if (message.role === "user") {
+      const text = typeof message.content.text === "string" ? message.content.text : "";
+      items.push({ kind: "user", text });
+      continue;
+    }
+    if (message.role === "assistant") {
+      items.push({ kind: "answer", payload: message.content });
+    }
+  }
+  return items;
+}
+
 export function App() {
   const [personas, setPersonas] = useState<Persona[]>([]);
   const [session, setSession] = useState<Session | null>(null);
   const [deploymentId, setDeploymentId] = useState("fixture-a");
   const [customerId, setCustomerId] = useState("cust-100");
   const [conversation, setConversation] = useState<Conversation | null>(null);
+  const [conversationList, setConversationList] = useState<ConversationSummary[]>([]);
   const [capabilities, setCapabilities] = useState<Record<string, boolean> | null>(null);
   const [input, setInput] = useState("Why is svc-100 unavailable?");
   const [items, setItems] = useState<ChatItem[]>([]);
@@ -39,7 +65,9 @@ export function App() {
     void (async () => {
       const sessionRes = await fetch("/api/session");
       if (sessionRes.ok) {
-        setSession((await sessionRes.json()) as Session);
+        const next = (await sessionRes.json()) as Session;
+        setSession(next);
+        await refreshConversations(true);
       }
       const personaRes = await fetch("/api/auth/local/personas");
       if (personaRes.ok) {
@@ -49,8 +77,67 @@ export function App() {
     })();
   }, []);
 
+  async function refreshConversations(selectLatest = false): Promise<ConversationSummary[]> {
+    const res = await fetch("/api/conversations");
+    if (!res.ok) {
+      setConversationList([]);
+      return [];
+    }
+    const body = (await res.json()) as { conversations: ConversationSummary[] };
+    setConversationList(body.conversations);
+    if (selectLatest && body.conversations[0]) {
+      await openConversation(body.conversations[0].id);
+    }
+    return body.conversations;
+  }
+
+  async function loadCapabilities(depId: string): Promise<void> {
+    const caps = await fetch(`/api/deployments/${depId}/capabilities`);
+    if (caps.ok) {
+      const payload = (await caps.json()) as { capabilities: Record<string, boolean> };
+      setCapabilities(payload.capabilities);
+    }
+  }
+
+  async function openConversation(id: string): Promise<void> {
+    setError(null);
+    setEvidence(null);
+    const res = await fetch(`/api/conversations/${id}`);
+    if (!res.ok) {
+      setError(`Open conversation failed (${res.status})`);
+      return;
+    }
+    const body = (await res.json()) as {
+      conversation: {
+        id: string;
+        revision: number;
+        deploymentId: string;
+        targetCustomerId: string | null;
+      };
+      messages: Array<{ role: string; content: Record<string, unknown> }>;
+    };
+    const row = body.conversation;
+    setDeploymentId(row.deploymentId);
+    if (row.targetCustomerId) setCustomerId(row.targetCustomerId);
+    setConversation({
+      id: row.id,
+      revision: row.revision,
+      scope: {
+        deploymentId: row.deploymentId,
+        targetCustomerId: row.targetCustomerId ?? "",
+      },
+    });
+    setItems(messagesToItems(body.messages));
+    await loadCapabilities(row.deploymentId);
+  }
+
   async function login(personaId: string) {
     setError(null);
+    setConversation(null);
+    setItems([]);
+    setEvidence(null);
+    setCapabilities(null);
+    setConversationList([]);
     const res = await fetch("/api/auth/local/login", {
       method: "POST",
       headers: { "content-type": "application/json", origin: ORIGIN },
@@ -62,6 +149,7 @@ export function App() {
     }
     const sessionRes = await fetch("/api/session");
     setSession((await sessionRes.json()) as Session);
+    await refreshConversations(true);
   }
 
   async function logout() {
@@ -71,7 +159,10 @@ export function App() {
     });
     setSession(null);
     setConversation(null);
+    setConversationList([]);
     setItems([]);
+    setEvidence(null);
+    setCapabilities(null);
   }
 
   async function startConversation() {
@@ -90,12 +181,10 @@ export function App() {
     }
     const body = (await res.json()) as Conversation;
     setConversation(body);
-    const caps = await fetch(`/api/deployments/${deploymentId}/capabilities`);
-    if (caps.ok) {
-      const payload = (await caps.json()) as { capabilities: Record<string, boolean> };
-      setCapabilities(payload.capabilities);
-    }
     setItems([]);
+    setEvidence(null);
+    await loadCapabilities(deploymentId);
+    await refreshConversations(false);
   }
 
   async function sendTurn() {
@@ -169,6 +258,7 @@ export function App() {
           }
         }
       }
+      await refreshConversations(false);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Turn failed");
     } finally {
@@ -241,6 +331,30 @@ export function App() {
             <button type="button" onClick={() => void startConversation()}>
               Start conversation
             </button>
+            <div className="conversation-list">
+              <h3>Conversations</h3>
+              {conversationList.length === 0 ? (
+                <p className="muted">No saved conversations yet.</p>
+              ) : (
+                <ul>
+                  {conversationList.map((row) => (
+                    <li key={row.id}>
+                      <button
+                        type="button"
+                        className={conversation?.id === row.id ? "active" : undefined}
+                        onClick={() => void openConversation(row.id)}
+                      >
+                        <span>{row.title}</span>
+                        <small>
+                          {row.deploymentId}
+                          {row.targetCustomerId ? ` · ${row.targetCustomerId}` : ""}
+                        </small>
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
             {capabilities ? (
               <ul className="caps">
                 {Object.entries(capabilities).map(([key, value]) => (
@@ -270,6 +384,9 @@ export function App() {
               </button>
             </div>
             <div className="transcript" aria-live="polite">
+              {!conversation ? (
+                <p className="muted">Select a conversation or start a new one.</p>
+              ) : null}
               {items.map((item, index) => (
                 <div key={`${item.kind}-${index}`} className={`bubble ${item.kind}`}>
                   {item.kind === "user" ? item.text : null}

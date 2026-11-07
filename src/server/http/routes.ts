@@ -31,17 +31,26 @@ const createTurnSchema = z.object({
 export function mountApiRoutes(app: Hono, ctx: AppContext): void {
   app.get("/api/health/live", (c) => c.json({ ok: true }));
 
-  app.get("/api/health/ready", (c) => {
+  app.get("/api/health/ready", async (c) => {
     try {
-      // Memory store is always ready; Postgres readiness hooks in later when wired.
       if (!ctx.env) return c.json({ ok: false }, 503);
-      return c.json({ ok: true, authMode: ctx.env.AUTH_MODE, modelMode: ctx.env.MODEL_MODE });
+      if (ctx.storeKind === "postgres" && ctx.env.DATABASE_URL) {
+        const { pingDb } = await import("../db/client");
+        const ok = await pingDb(ctx.env.DATABASE_URL);
+        if (!ok) return c.json({ ok: false, store: ctx.storeKind }, 503);
+      }
+      return c.json({
+        ok: true,
+        authMode: ctx.env.AUTH_MODE,
+        modelMode: ctx.env.MODEL_MODE,
+        store: ctx.storeKind,
+      });
     } catch {
       return c.json({ ok: false }, 503);
     }
   });
 
-  app.get("/api/auth/local/personas", (c) => {
+  app.get("/api/auth/local/personas", async (c) => {
     if (ctx.env.AUTH_MODE !== "local-fixture" || !ctx.personas) {
       return c.json({ error: { code: "NOT_AVAILABLE", message: "Local personas disabled" } }, 404);
     }
@@ -70,7 +79,7 @@ export function mountApiRoutes(app: Hono, ctx: AppContext): void {
     }
     try {
       const principal = personaToPrincipal(ctx.personas, body.personaId);
-      const { token } = issueSession(ctx.store, principal);
+      const { token } = await issueSession(ctx.store, principal);
       c.header("Set-Cookie", sessionCookieHeader(token, ctx.env));
       return c.json({
         subject: principal.subject,
@@ -86,7 +95,7 @@ export function mountApiRoutes(app: Hono, ctx: AppContext): void {
     }
   });
 
-  app.get("/api/auth/login", (c) => {
+  app.get("/api/auth/login", async (c) => {
     if (ctx.env.AUTH_MODE !== "oidc") {
       return c.json({ error: { code: "NOT_AVAILABLE", message: "OIDC disabled" } }, 404);
     }
@@ -138,7 +147,7 @@ export function mountApiRoutes(app: Hono, ctx: AppContext): void {
         customersClaim: "customers",
         policyVersion: "oidc-claims-1",
       });
-      const { token } = issueSession(ctx.store, principal);
+      const { token } = await issueSession(ctx.store, principal);
       c.header("Set-Cookie", sessionCookieHeader(token, ctx.env));
       return c.redirect("/");
     } catch (error) {
@@ -154,20 +163,20 @@ export function mountApiRoutes(app: Hono, ctx: AppContext): void {
     }
   });
 
-  app.post("/api/auth/logout", (c) => {
+  app.post("/api/auth/logout", async (c) => {
     try {
       assertSameOrigin(c.req.raw, ctx.env.APP_ORIGIN);
     } catch (error) {
       return originError(c, error);
     }
     const token = cookieValue(c.req.header("cookie"), SESSION_COOKIE);
-    if (token) ctx.store.revokeSession(token);
+    if (token) await ctx.store.revokeSession(token);
     c.header("Set-Cookie", clearSessionCookieHeader(ctx.env));
     return c.body(null, 204);
   });
 
-  app.get("/api/session", (c) => {
-    const session = readSession(ctx.store, c.req.header("cookie"));
+  app.get("/api/session", async (c) => {
+    const session = await readSession(ctx.store, c.req.header("cookie"));
     if (!session) return c.json({ error: { code: "UNAUTHENTICATED", message: "No session" } }, 401);
     const p = session.principal;
     return c.json({
@@ -180,8 +189,8 @@ export function mountApiRoutes(app: Hono, ctx: AppContext): void {
     });
   });
 
-  app.get("/api/deployments/:id/capabilities", (c) => {
-    const session = readSession(ctx.store, c.req.header("cookie"));
+  app.get("/api/deployments/:id/capabilities", async (c) => {
+    const session = await readSession(ctx.store, c.req.header("cookie"));
     if (!session) return c.json({ error: { code: "UNAUTHENTICATED", message: "No session" } }, 401);
     const id = c.req.param("id");
     const decision = ctx.authz.authorizeDeployment(session.principal, id);
@@ -197,8 +206,8 @@ export function mountApiRoutes(app: Hono, ctx: AppContext): void {
     });
   });
 
-  app.get("/api/deployments/:id/customers", (c) => {
-    const session = readSession(ctx.store, c.req.header("cookie"));
+  app.get("/api/deployments/:id/customers", async (c) => {
+    const session = await readSession(ctx.store, c.req.header("cookie"));
     if (!session) return c.json({ error: { code: "UNAUTHENTICATED", message: "No session" } }, 401);
     if (session.principal.audience !== "operator") {
       return c.json({ error: { code: "FORBIDDEN", message: "Operators only" } }, 403);
@@ -214,7 +223,7 @@ export function mountApiRoutes(app: Hono, ctx: AppContext): void {
   });
 
   app.post("/api/conversations", async (c) => {
-    const session = readSession(ctx.store, c.req.header("cookie"));
+    const session = await readSession(ctx.store, c.req.header("cookie"));
     if (!session) return c.json({ error: { code: "UNAUTHENTICATED", message: "No session" } }, 401);
     try {
       assertSameOrigin(c.req.raw, ctx.env.APP_ORIGIN);
@@ -237,7 +246,7 @@ export function mountApiRoutes(app: Hono, ctx: AppContext): void {
     }
     const cust = ctx.authz.authorizeCustomer(session.principal, deploymentId, targetCustomerId);
     if (!cust.allowed) return c.json({ error: { code: cust.code, message: cust.reason } }, 404);
-    const conversation = ctx.store.createConversation({
+    const conversation = await ctx.store.createConversation({
       tenantId: session.principal.tenantId,
       deploymentId,
       ownerSubject: session.principal.subject,
@@ -254,11 +263,10 @@ export function mountApiRoutes(app: Hono, ctx: AppContext): void {
     );
   });
 
-  app.get("/api/conversations", (c) => {
-    const session = readSession(ctx.store, c.req.header("cookie"));
+  app.get("/api/conversations", async (c) => {
+    const session = await readSession(ctx.store, c.req.header("cookie"));
     if (!session) return c.json({ error: { code: "UNAUTHENTICATED", message: "No session" } }, 401);
-    const list = ctx.store
-      .listConversations(session.principal.tenantId, session.principal.subject)
+    const list = (await ctx.store.listConversations(session.principal.tenantId, session.principal.subject))
       .slice(0, 20)
       .map((row) => ({
         id: row.id,
@@ -271,15 +279,14 @@ export function mountApiRoutes(app: Hono, ctx: AppContext): void {
     return c.json({ conversations: list });
   });
 
-  app.get("/api/conversations/:id", (c) => {
-    const session = readSession(ctx.store, c.req.header("cookie"));
+  app.get("/api/conversations/:id", async (c) => {
+    const session = await readSession(ctx.store, c.req.header("cookie"));
     if (!session) return c.json({ error: { code: "UNAUTHENTICATED", message: "No session" } }, 401);
-    const conversation = ctx.store.getConversation(session.principal.tenantId, c.req.param("id"));
+    const conversation = await ctx.store.getConversation(session.principal.tenantId, c.req.param("id"));
     if (!conversation || conversation.ownerSubject !== session.principal.subject) {
       return c.json({ error: { code: "NOT_FOUND", message: "Not found" } }, 404);
     }
-    const messages = ctx.store.messages
-      .filter((m) => m.conversationId === conversation.id)
+    const messages = (await ctx.store.listMessages(session.principal.tenantId, conversation.id))
       .map((m) => ({
         id: m.id,
         role: m.role,
@@ -290,14 +297,14 @@ export function mountApiRoutes(app: Hono, ctx: AppContext): void {
   });
 
   app.post("/api/conversations/:id/turns", async (c) => {
-    const session = readSession(ctx.store, c.req.header("cookie"));
+    const session = await readSession(ctx.store, c.req.header("cookie"));
     if (!session) return c.json({ error: { code: "UNAUTHENTICATED", message: "No session" } }, 401);
     try {
       assertSameOrigin(c.req.raw, ctx.env.APP_ORIGIN);
     } catch (error) {
       return originError(c, error);
     }
-    const conversation = ctx.store.getConversation(session.principal.tenantId, c.req.param("id"));
+    const conversation = await ctx.store.getConversation(session.principal.tenantId, c.req.param("id"));
     if (!conversation || conversation.ownerSubject !== session.principal.subject) {
       return c.json({ error: { code: "NOT_FOUND", message: "Not found" } }, 404);
     }
@@ -310,7 +317,7 @@ export function mountApiRoutes(app: Hono, ctx: AppContext): void {
     if (!profile) {
       return c.json({ error: { code: "NOT_FOUND", message: "Deployment profile missing" } }, 404);
     }
-    const accepted = ctx.store.acceptTurn({
+    const accepted = await ctx.store.acceptTurn({
       conversationId: conversation.id,
       tenantId: session.principal.tenantId,
       ownerSubject: session.principal.subject,
@@ -366,7 +373,7 @@ export function mountApiRoutes(app: Hono, ctx: AppContext): void {
               },
             },
           );
-          const finalized = ctx.store.finalizeTurn({
+          const finalized = await ctx.store.finalizeTurn({
             turnId: accepted.turn.id,
             leaseToken: accepted.turn.leaseToken,
             state: answer.content.status === "partial" ? "partial" : "completed",
@@ -398,7 +405,7 @@ export function mountApiRoutes(app: Hono, ctx: AppContext): void {
             error instanceof Error && "code" in error
               ? String((error as { code: string }).code)
               : "TURN_FAILED";
-          ctx.store.finalizeTurn({
+          await ctx.store.finalizeTurn({
             turnId: accepted.turn.id,
             leaseToken: accepted.turn.leaseToken,
             state: code === "CANCELLED" ? "cancelled" : "failed",
@@ -419,14 +426,14 @@ export function mountApiRoutes(app: Hono, ctx: AppContext): void {
     return createUIMessageStreamResponse({ stream });
   });
 
-  app.get("/api/conversations/:id/turns/:turnId", (c) => {
-    const session = readSession(ctx.store, c.req.header("cookie"));
+  app.get("/api/conversations/:id/turns/:turnId", async (c) => {
+    const session = await readSession(ctx.store, c.req.header("cookie"));
     if (!session) return c.json({ error: { code: "UNAUTHENTICATED", message: "No session" } }, 401);
-    const conversation = ctx.store.getConversation(session.principal.tenantId, c.req.param("id"));
+    const conversation = await ctx.store.getConversation(session.principal.tenantId, c.req.param("id"));
     if (!conversation || conversation.ownerSubject !== session.principal.subject) {
       return c.json({ error: { code: "NOT_FOUND", message: "Not found" } }, 404);
     }
-    const turn = ctx.store.turns.get(c.req.param("turnId"));
+    const turn = await ctx.store.getTurn(session.principal.tenantId, c.req.param("turnId"));
     if (!turn || turn.conversationId !== conversation.id) {
       return c.json({ error: { code: "NOT_FOUND", message: "Not found" } }, 404);
     }
@@ -438,30 +445,30 @@ export function mountApiRoutes(app: Hono, ctx: AppContext): void {
     });
   });
 
-  app.post("/api/conversations/:id/turns/:turnId/cancel", (c) => {
-    const session = readSession(ctx.store, c.req.header("cookie"));
+  app.post("/api/conversations/:id/turns/:turnId/cancel", async (c) => {
+    const session = await readSession(ctx.store, c.req.header("cookie"));
     if (!session) return c.json({ error: { code: "UNAUTHENTICATED", message: "No session" } }, 401);
     try {
       assertSameOrigin(c.req.raw, ctx.env.APP_ORIGIN);
     } catch (error) {
       return originError(c, error);
     }
-    const conversation = ctx.store.getConversation(session.principal.tenantId, c.req.param("id"));
+    const conversation = await ctx.store.getConversation(session.principal.tenantId, c.req.param("id"));
     if (!conversation || conversation.ownerSubject !== session.principal.subject) {
       return c.json({ error: { code: "NOT_FOUND", message: "Not found" } }, 404);
     }
-    ctx.store.requestCancel(c.req.param("turnId"), session.principal.tenantId);
+    await ctx.store.requestCancel(c.req.param("turnId"), session.principal.tenantId);
     return c.json({ accepted: true }, 202);
   });
 
-  app.get("/api/conversations/:id/evidence/:evidenceId", (c) => {
-    const session = readSession(ctx.store, c.req.header("cookie"));
+  app.get("/api/conversations/:id/evidence/:evidenceId", async (c) => {
+    const session = await readSession(ctx.store, c.req.header("cookie"));
     if (!session) return c.json({ error: { code: "UNAUTHENTICATED", message: "No session" } }, 401);
-    const conversation = ctx.store.getConversation(session.principal.tenantId, c.req.param("id"));
+    const conversation = await ctx.store.getConversation(session.principal.tenantId, c.req.param("id"));
     if (!conversation || conversation.ownerSubject !== session.principal.subject) {
       return c.json({ error: { code: "NOT_FOUND", message: "Not found" } }, 404);
     }
-    const evidence = ctx.store.getEvidence(
+    const evidence = await ctx.store.getEvidence(
       session.principal.tenantId,
       conversation.id,
       c.req.param("evidenceId"),
@@ -480,7 +487,7 @@ export function mountApiRoutes(app: Hono, ctx: AppContext): void {
   });
 
   app.post("/api/conversations/:id/feedback", async (c) => {
-    const session = readSession(ctx.store, c.req.header("cookie"));
+    const session = await readSession(ctx.store, c.req.header("cookie"));
     if (!session) return c.json({ error: { code: "UNAUTHENTICATED", message: "No session" } }, 401);
     try {
       assertSameOrigin(c.req.raw, ctx.env.APP_ORIGIN);
@@ -496,7 +503,7 @@ export function mountApiRoutes(app: Hono, ctx: AppContext): void {
     if (!body.turnId || (body.rating !== "helpful" && body.rating !== "unhelpful")) {
       return c.json({ error: { code: "INVALID_ARGUMENT", message: "Invalid feedback" } }, 400);
     }
-    ctx.store.feedback.push({
+    await ctx.store.upsertFeedback({
       tenantId: session.principal.tenantId,
       conversationId: c.req.param("id"),
       turnId: body.turnId,
@@ -508,15 +515,15 @@ export function mountApiRoutes(app: Hono, ctx: AppContext): void {
     return c.json({ ok: true }, 201);
   });
 
-  app.delete("/api/conversations/:id", (c) => {
-    const session = readSession(ctx.store, c.req.header("cookie"));
+  app.delete("/api/conversations/:id", async (c) => {
+    const session = await readSession(ctx.store, c.req.header("cookie"));
     if (!session) return c.json({ error: { code: "UNAUTHENTICATED", message: "No session" } }, 401);
     try {
       assertSameOrigin(c.req.raw, ctx.env.APP_ORIGIN);
     } catch (error) {
       return originError(c, error);
     }
-    const ok = ctx.store.deleteConversation(
+    const ok = await ctx.store.deleteConversation(
       session.principal.tenantId,
       c.req.param("id"),
       session.principal.subject,

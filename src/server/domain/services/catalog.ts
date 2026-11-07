@@ -99,7 +99,7 @@ export function createDomainServices(options: {
         },
         ctx.principal.audience,
       );
-      const evidence = ledger.record({
+      const evidence = await ledger.record({
         kind: "tmf-record",
         entity: customer.ref,
         fields,
@@ -164,7 +164,7 @@ export function createDomainServices(options: {
         },
         ctx.principal.audience,
       );
-      const evidence = ledger.record({
+      const evidence = await ledger.record({
         kind: "tmf-record",
         entity: service.ref,
         fields,
@@ -205,7 +205,7 @@ export function createDomainServices(options: {
               ),
             );
             tickets.push(ticket);
-            const ev = ledger.record({
+            const ev = await ledger.record({
               kind: "tmf-record",
               entity: ticket.ref,
               fields: projectForAudience(
@@ -243,7 +243,7 @@ export function createDomainServices(options: {
             const orderResult = await gateway.read("order.get", { id: ref.id });
             const order = asSingle(orderResult.data) as ServiceOrder;
             orders.push(order);
-            const ev = ledger.record({
+            const ev = await ledger.record({
               kind: "tmf-record",
               entity: order.ref,
               fields: projectForAudience(
@@ -292,7 +292,7 @@ export function createDomainServices(options: {
           ticket.ref,
         ),
       );
-      const evidence = ledger.record({
+      const evidence = await ledger.record({
         kind: "tmf-record",
         entity: ticket.ref,
         fields: projectForAudience(
@@ -333,7 +333,7 @@ export function createDomainServices(options: {
           order.ref,
         ),
       );
-      const evidence = ledger.record({
+      const evidence = await ledger.record({
         kind: "tmf-record",
         entity: order.ref,
         fields: projectForAudience(

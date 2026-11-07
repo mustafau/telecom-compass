@@ -1,7 +1,7 @@
 import "../guard";
 import type { EntityRef } from "../domain/types";
 import type { ExecutionContext } from "../domain/execution";
-import type { EvidenceRow, MemoryStore } from "../db/memory-store";
+import type { CompassStore, EvidenceRow } from "../db/types";
 
 export type EvidenceLedger = {
   record(input: {
@@ -11,22 +11,22 @@ export type EvidenceLedger = {
     visibility: "customer" | "operator";
     sourceLocator: string;
     provenance?: Record<string, unknown>;
-  }): EvidenceRow;
+  }): Promise<EvidenceRow>;
   freeze(): EvidenceRow[];
   has(id: string): boolean;
   get(id: string): EvidenceRow | undefined;
 };
 
 export function createEvidenceLedger(
-  store: MemoryStore,
+  store: CompassStore,
   ctx: ExecutionContext,
 ): EvidenceLedger {
   const ids = new Set<string>();
   const byId = new Map<string, EvidenceRow>();
 
   return {
-    record(input) {
-      const row = store.addEvidence({
+    async record(input) {
+      const row = await store.addEvidence({
         tenantId: ctx.principal.tenantId,
         conversationId: ctx.conversationId,
         turnId: ctx.turnId,

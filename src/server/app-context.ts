@@ -2,7 +2,10 @@ import "./guard";
 import path from "node:path";
 import type { AppEnv } from "./config/env";
 import { loadLocalPersonas, type LocalPersonaFile } from "./auth/local-personas";
+import { createDb } from "./db/client";
 import { MemoryStore } from "./db/memory-store";
+import { PostgresStore } from "./db/postgres-store";
+import type { CompassStore } from "./db/types";
 import { createFixtureAuthorizationService } from "./policy/fixture-authz";
 import type { AuthorizationService } from "./policy/types";
 import { loadCheckedProfile } from "./tmf/profile/load";
@@ -14,11 +17,13 @@ import { envSecretResolver } from "./tmf/transport/auth";
 
 export type AppContext = {
   env: AppEnv;
-  store: MemoryStore;
+  store: CompassStore;
+  storeKind: "memory" | "postgres";
   authz: AuthorizationService;
   personas: LocalPersonaFile | null;
   profiles: Map<string, CheckedProfile>;
   servicesFor(deploymentId: string): DomainServices;
+  close?: () => Promise<void>;
 };
 
 export async function createAppContext(env: AppEnv): Promise<AppContext> {
@@ -26,7 +31,24 @@ export async function createAppContext(env: AppEnv): Promise<AppContext> {
     throw new Error("local-fixture auth cannot start in demo/production");
   }
 
-  const store = new MemoryStore();
+  let store: CompassStore;
+  let storeKind: "memory" | "postgres" = "memory";
+  let close: (() => Promise<void>) | undefined;
+
+  if (env.DATABASE_URL) {
+    const { db, pool } = createDb(env.DATABASE_URL);
+    store = new PostgresStore(db);
+    storeKind = "postgres";
+    close = async () => {
+      await pool.end();
+    };
+  } else {
+    if (env.APP_MODE === "production") {
+      throw new Error("APP_MODE=production requires DATABASE_URL");
+    }
+    store = new MemoryStore();
+  }
+
   const authz = createFixtureAuthorizationService();
   let personas: LocalPersonaFile | null = null;
   if (env.AUTH_MODE === "local-fixture") {
@@ -45,7 +67,6 @@ export async function createAppContext(env: AppEnv): Promise<AppContext> {
     }
   }
 
-  // Optional local sandbox profile
   try {
     const localProfile = await loadCheckedProfile(env.DEPLOYMENTS_FILE, env.DEFAULT_DEPLOYMENT_ID);
     if (localProfile.environment === "live" && env.AUTH_MODE === "local-fixture") {
@@ -79,5 +100,5 @@ export async function createAppContext(env: AppEnv): Promise<AppContext> {
     return createDomainServices({ profile, gateway, authz });
   }
 
-  return { env, store, authz, personas, profiles, servicesFor };
+  return { env, store, storeKind, authz, personas, profiles, servicesFor, close };
 }

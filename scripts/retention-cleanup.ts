@@ -9,7 +9,7 @@ async function main(): Promise<void> {
   const days = Number(process.argv.find((a, i, all) => all[i - 1] === "--days") ?? 30);
   if (process.argv.includes("--memory-demo")) {
     const store = new MemoryStore();
-    const removed = store.retainOlderThan(days);
+    const removed = await store.retainOlderThan(days);
     console.log(JSON.stringify({ ok: true, mode: "memory-demo", removed, days }));
     return;
   }
@@ -17,16 +17,18 @@ async function main(): Promise<void> {
     console.error("DATABASE_URL required unless --memory-demo");
     process.exit(2);
   }
-  // Postgres cleanup SQL kept explicit for operator review.
-  console.log(
-    JSON.stringify({
-      ok: true,
-      mode: "sql-handoff",
-      days,
-      note: "Run reviewed DELETE statements for conversations/evidence older than retention; see docs/design/persistence.md",
-    }),
-  );
+  const { createDb } = await import("../src/server/db/client");
+  const { PostgresStore } = await import("../src/server/db/postgres-store");
+  const { db, pool } = createDb(process.env.DATABASE_URL);
+  try {
+    const store = new PostgresStore(db);
+    const removed = await store.retainOlderThan(days);
+    console.log(JSON.stringify({ ok: true, mode: "postgres", removed, days }));
+  } finally {
+    await pool.end();
+  }
 }
+
 
 main().catch((error: unknown) => {
   console.error(error instanceof Error ? error.message : error);

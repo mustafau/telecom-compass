@@ -199,11 +199,51 @@ textarea {
   font-weight: 600;
 }
 
+.conversation-list {
+  margin-top: 1rem;
+}
+
+.conversation-list h3 {
+  margin: 0 0 0.5rem;
+  font-size: 0.95rem;
+}
+
+.conversation-list ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  gap: 0.35rem;
+}
+
+.conversation-list button {
+  width: 100%;
+  text-align: left;
+  display: grid;
+  gap: 0.15rem;
+  padding: 0.55rem 0.65rem;
+  border-radius: 10px;
+  border: 1px solid transparent;
+  background: rgba(15, 23, 32, 0.04);
+}
+
+.conversation-list button.active {
+  border-color: var(--accent);
+  background: rgba(37, 99, 235, 0.08);
+}
+
+.conversation-list small,
+.muted {
+  opacity: 0.7;
+  font-size: 0.8rem;
+}
+
 .caps {
   list-style: none;
   padding: 0;
   font-size: 0.85rem;
 }
+
 
 .caps li[data-on="0"] {
   opacity: 0.55;
