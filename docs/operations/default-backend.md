@@ -22,4 +22,4 @@ Replace localhost with the actual deployed sandbox HTTPS origin before building/
 
 ## Independent tests
 
-Automated unit/integration/evaluation tests explicitly select the original fixture profiles A/B. They do not depend on sandbox uptime. A separate integration smoke test validates the default sandbox profile. An unavailable default backend produces an actionable connection error; never silently switch to test fixtures or production data.
+Automated unit/integration/evaluation tests explicitly select the original fixture profiles A/B. They do not depend on sandbox uptime. Vitest and `pnpm eval:offline` set `COMPASS_ENABLE_TEST_FIXTURES=1` and `AUTHORIZATION_CONFIG_FILE=./config/auth/test-personas.yaml`. Interactive `pnpm dev:node` does **not** load those fixtures; it requires the sandbox profile from `pnpm setup:local` and fails startup if that profile is missing. An unavailable sandbox produces an actionable connection error; never silently switch to test fixtures or production data.

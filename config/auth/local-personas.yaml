@@ -7,29 +7,21 @@ personas:
     tenantId: tenant-a
     audience: operator
     roles: [operator]
-    allowedDeploymentIds: [fixture-a, fixture-b, fixture-c, fixture-d, telecom-api-sandbox]
-    allowedCustomerIds: [cust-100, cust-200]
+    allowedDeploymentIds: [telecom-api-sandbox]
+    allowedCustomerIds: [customer-001]
   - id: op-beta
     displayName: Operator Beta
     subject: local:op-beta
     tenantId: tenant-b
     audience: operator
     roles: [operator]
-    allowedDeploymentIds: [fixture-a, fixture-b]
-    allowedCustomerIds: [cust-100]
+    allowedDeploymentIds: [telecom-api-sandbox]
+    allowedCustomerIds: [customer-001]
   - id: cust-alpha
     displayName: Customer Alpha
     subject: local:cust-alpha
     tenantId: tenant-a
     audience: customer
     roles: [customer]
-    allowedDeploymentIds: [fixture-a, fixture-b]
-    allowedCustomerIds: [cust-100]
-  - id: cust-other
-    displayName: Customer Other
-    subject: local:cust-other
-    tenantId: tenant-a
-    audience: customer
-    roles: [customer]
-    allowedDeploymentIds: [fixture-a]
-    allowedCustomerIds: [cust-200]
+    allowedDeploymentIds: [telecom-api-sandbox]
+    allowedCustomerIds: [customer-001]

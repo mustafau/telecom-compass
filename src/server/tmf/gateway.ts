@@ -1,5 +1,6 @@
 import "../guard";
 import type { SourceMeta } from "../domain/types";
+import { safeLog } from "../telemetry/safe-log";
 import type { NormalizedEntity } from "./adapters/types";
 import { TmfError } from "./errors";
 import type { CheckedProfile } from "./profile/revision";
@@ -89,6 +90,7 @@ async function executeRead(input: {
     bindings,
     bindings,
   );
+  const upstreamHost = url.host;
 
   const auth = await resolveAuthHeaders(
     authBinding,
@@ -96,14 +98,38 @@ async function executeRead(input: {
     input.fetchImpl ?? fetch,
   );
 
-  const response = await boundedGet({
-    url,
-    headers: auth.headers,
-    signal: input.context.signal,
-    timeoutMs: input.context.timeoutMs ?? 8_000,
-    maxBytes: profile.limits.maxResponseBytes,
-    fetchImpl: input.fetchImpl,
-    allowedOrigin: new URL(registered.api.baseUrl),
+  const started = Date.now();
+  let response: Awaited<ReturnType<typeof boundedGet>>;
+  try {
+    response = await boundedGet({
+      url,
+      headers: auth.headers,
+      signal: input.context.signal,
+      timeoutMs: input.context.timeoutMs ?? 8_000,
+      maxBytes: profile.limits.maxResponseBytes,
+      fetchImpl: input.fetchImpl,
+      allowedOrigin: new URL(registered.api.baseUrl),
+    });
+  } catch (error) {
+    const code = error instanceof TmfError ? error.code : "UPSTREAM_UNAVAILABLE";
+    safeLog("error", "tmf.get", {
+      deploymentId: input.context.deploymentId,
+      operationKey: registered.operationKey,
+      host: upstreamHost,
+      pathTemplate: registered.operation.path,
+      durationMs: Date.now() - started,
+      errorCode: code,
+    });
+    throw error;
+  }
+
+  safeLog(response.status >= 400 ? "warn" : "info", "tmf.get", {
+    deploymentId: input.context.deploymentId,
+    operationKey: registered.operationKey,
+    host: upstreamHost,
+    pathTemplate: registered.operation.path,
+    status: response.status,
+    durationMs: Date.now() - started,
   });
 
   if (response.status === 401 || response.status === 403) {

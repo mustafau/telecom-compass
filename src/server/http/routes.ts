@@ -16,6 +16,7 @@ import { hashRequest } from "../db/memory-store";
 import { runTurn } from "../agent/turn-runner";
 import { assertAuthorized } from "../policy/fixture-authz";
 import { beginOidcLogin, exchangeAuthorizationCode, mapVerifiedClaimsToPrincipal } from "../auth/oidc/client";
+import { safeLog } from "../telemetry/safe-log";
 
 const createConversationSchema = z.object({
   deploymentId: z.string().min(1),
@@ -29,6 +30,19 @@ const createTurnSchema = z.object({
 });
 
 export function mountApiRoutes(app: Hono, ctx: AppContext): void {
+  app.use("/api/*", async (c, next) => {
+    const started = Date.now();
+    await next();
+    const path = new URL(c.req.url).pathname;
+    if (path === "/api/health/live" || path === "/api/health/ready") return;
+    safeLog(c.res.status >= 500 ? "error" : c.res.status >= 400 ? "warn" : "info", "http.request", {
+      method: c.req.method,
+      route: c.req.routePath || path,
+      status: c.res.status,
+      durationMs: Date.now() - started,
+    });
+  });
+
   app.get("/api/health/live", (c) => c.json({ ok: true }));
 
   app.get("/api/health/ready", async (c) => {
@@ -329,7 +343,26 @@ export function mountApiRoutes(app: Hono, ctx: AppContext): void {
       policyVersion: session.principal.policyVersion,
     });
     if (accepted.status === "conflict") {
-      return c.json({ error: { code: accepted.code, message: accepted.code } }, 409);
+      const latest = await ctx.store.getConversation(
+        session.principal.tenantId,
+        conversation.id,
+      );
+      safeLog("warn", "turn.conflict", {
+        deploymentId: conversation.deploymentId,
+        code: accepted.code,
+        expectedRevision: parsed.data.expectedRevision,
+        conversationRevision: latest?.revision ?? conversation.revision,
+      });
+      return c.json(
+        {
+          error: {
+            code: accepted.code,
+            message: accepted.code,
+            conversationRevision: latest?.revision ?? conversation.revision,
+          },
+        },
+        409,
+      );
     }
     if (accepted.replay && accepted.turn.state !== "running" && accepted.turn.answerJson) {
       return c.json({
@@ -405,7 +438,7 @@ export function mountApiRoutes(app: Hono, ctx: AppContext): void {
             error instanceof Error && "code" in error
               ? String((error as { code: string }).code)
               : "TURN_FAILED";
-          await ctx.store.finalizeTurn({
+          const failed = await ctx.store.finalizeTurn({
             turnId: accepted.turn.id,
             leaseToken: accepted.turn.leaseToken,
             state: code === "CANCELLED" ? "cancelled" : "failed",
@@ -418,6 +451,9 @@ export function mountApiRoutes(app: Hono, ctx: AppContext): void {
               code,
               message: error instanceof Error ? error.message : "Turn failed",
               retryable: false,
+              conversationRevision: failed.ok
+                ? failed.conversation.revision
+                : accepted.conversation.revision,
             },
           });
         }

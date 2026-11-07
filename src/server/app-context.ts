@@ -14,6 +14,7 @@ import { createTmfGateway } from "./tmf/gateway";
 import { createFixtureServer } from "./tmf/fixtures/server";
 import { createDomainServices, type DomainServices } from "./domain/services/catalog";
 import { envSecretResolver } from "./tmf/transport/auth";
+import { safeLog } from "./telemetry/safe-log";
 
 export type AppContext = {
   env: AppEnv;
@@ -58,12 +59,21 @@ export async function createAppContext(env: AppEnv): Promise<AppContext> {
   }
 
   const profiles = new Map<string, CheckedProfile>();
-  const fixtureDeployments = path.resolve("config/fixtures/deployments.yaml");
-  for (const id of ["fixture-a", "fixture-b", "fixture-c", "fixture-d"]) {
-    try {
-      profiles.set(id, await loadCheckedProfile(fixtureDeployments, id));
-    } catch {
-      // optional if file missing in partial checkouts
+  const fixtureFetchers = new Map<string, typeof fetch>();
+  // In-process fixtures are for automated tests only — never the interactive default.
+  const enableTestFixtures = process.env.COMPASS_ENABLE_TEST_FIXTURES === "1";
+  if (enableTestFixtures) {
+    const fixtureDeployments = path.resolve("config/fixtures/deployments.yaml");
+    for (const id of ["fixture-a", "fixture-b", "fixture-c", "fixture-d"]) {
+      try {
+        profiles.set(id, await loadCheckedProfile(fixtureDeployments, id));
+      } catch {
+        // optional if file missing in partial checkouts
+      }
+    }
+    for (const id of ["fixture-a", "fixture-b"] as const) {
+      const variant = id === "fixture-a" ? "a" : "b";
+      fixtureFetchers.set(id, createFixtureServer(variant).fetch);
     }
   }
 
@@ -73,14 +83,14 @@ export async function createAppContext(env: AppEnv): Promise<AppContext> {
       throw new Error("local auth cannot activate a live deployment profile");
     }
     profiles.set(localProfile.id, localProfile);
-  } catch {
-    // setup:local may not have been run
-  }
-
-  const fixtureFetchers = new Map<string, typeof fetch>();
-  for (const id of ["fixture-a", "fixture-b"]) {
-    const variant = id === "fixture-a" ? "a" : "b";
-    fixtureFetchers.set(id, createFixtureServer(variant).fetch);
+  } catch (error) {
+    if (!enableTestFixtures) {
+      throw new Error(
+        `Default deployment "${env.DEFAULT_DEPLOYMENT_ID}" is required for interactive use. Run pnpm setup:local (and start telecom-api-sandbox). ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+      );
+    }
   }
 
   function servicesFor(deploymentId: string): DomainServices {
@@ -99,6 +109,28 @@ export async function createAppContext(env: AppEnv): Promise<AppContext> {
     });
     return createDomainServices({ profile, gateway, authz });
   }
+
+  const tmfHosts = [...new Set(
+    [...profiles.values()].flatMap((p) =>
+      Object.values(p.apis).map((api) => {
+        try {
+          return new URL(api.baseUrl).host;
+        } catch {
+          return "invalid-baseUrl";
+        }
+      }),
+    ),
+  )];
+  safeLog("info", "app.boot", {
+    appMode: env.APP_MODE,
+    authMode: env.AUTH_MODE,
+    modelMode: env.MODEL_MODE,
+    store: storeKind,
+    defaultDeploymentId: env.DEFAULT_DEPLOYMENT_ID,
+    profileCount: profiles.size,
+    testFixtures: enableTestFixtures ? 1 : 0,
+    tmfHosts: tmfHosts.join(","),
+  });
 
   return { env, store, storeKind, authz, personas, profiles, servicesFor, close };
 }

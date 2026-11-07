@@ -10,6 +10,10 @@ export default defineConfig({
   },
   test: {
     environment: "node",
+    env: {
+      COMPASS_ENABLE_TEST_FIXTURES: "1",
+      AUTHORIZATION_CONFIG_FILE: "./config/auth/test-personas.yaml",
+    },
     include: [
       "tests/unit/**/*.test.ts",
       "tests/contract/**/*.test.ts",

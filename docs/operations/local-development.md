@@ -30,11 +30,12 @@ Start [telecom-api-sandbox](https://github.com/mustafau/telecom-api-sandbox) sep
 
 ```sh
 pnpm setup:local                 # writes config/deployments.local.yaml + contracts.lock.local.json
+# start telecom-api-sandbox on LOCAL_TMF_BASE_URL (default http://localhost:8787)
 pnpm profile:check --profile telecom-api-sandbox \
   --deployments config/deployments.local.yaml \
   --lock config/contracts.lock.local.json
 pnpm db:migrate                  # reads DATABASE_URL from .env.local (Compose default in .env.example)
-pnpm dev
+pnpm dev:node                    # interactive UI uses sandbox only; fixtures stay test-gated
 ```
 
 `LOCAL_TMF_BASE_URL` (or `pnpm setup:local --base <url>`) is overridable during setup. See [default backend](default-backend.md). If the sandbox is down, setup still writes a profile with placeholders and warns; runtime must not silently switch to test fixtures.

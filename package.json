@@ -27,7 +27,7 @@
     "db:migrate": "tsx src/server/db/migrate.ts",
     "profile:check": "tsx scripts/profile-check.ts",
     "setup:local": "tsx scripts/setup-local.ts",
-    "eval:offline": "tsx scripts/eval-offline.ts",
+    "eval:offline": "COMPASS_ENABLE_TEST_FIXTURES=1 AUTHORIZATION_CONFIG_FILE=./config/auth/test-personas.yaml tsx scripts/eval-offline.ts",
     "retention:cleanup": "tsx scripts/retention-cleanup.ts",
     "test:e2e": "vitest run tests/integration/turns"
   },

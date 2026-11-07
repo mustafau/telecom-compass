@@ -58,4 +58,27 @@ describe("fixture authorization", () => {
       }).allowed,
     ).toBe(false);
   });
+
+  it("allows sandbox-style customer-NNN entity suffixes", () => {
+    const op = principal({
+      allowedDeploymentIds: ["telecom-api-sandbox"],
+      allowedCustomerIds: ["customer-001"],
+    });
+    expect(
+      authz.authorizeEntity(op, "telecom-api-sandbox", "customer-001", {
+        kind: "service",
+        id: "service-001",
+        apiId: "TMF638",
+        major: "v5",
+      }).allowed,
+    ).toBe(true);
+    expect(
+      authz.authorizeEntity(op, "telecom-api-sandbox", "customer-001", {
+        kind: "service",
+        id: "service-002",
+        apiId: "TMF638",
+        major: "v5",
+      }).allowed,
+    ).toBe(false);
+  });
 });

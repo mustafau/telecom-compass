@@ -7,7 +7,10 @@ import { createHash } from "node:crypto";
 import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { stringify as stringifyYaml } from "yaml";
+import { loadLocalDotenv } from "../src/server/config/load-dotenv";
 import { checkProfile } from "../src/server/tmf/profile/check";
+
+loadLocalDotenv();
 
 const DEFAULT_BASE = process.env.LOCAL_TMF_BASE_URL ?? "http://localhost:8787";
 

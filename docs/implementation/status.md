@@ -38,6 +38,8 @@ See M1 fixture adapters in `config/fixtures/`. Official TM Forum contract redist
 
 `createAppContext` selects store by env: **`DATABASE_URL` → PostgresStore (Drizzle/pg)**; otherwise **MemoryStore**. Production refuses to start without `DATABASE_URL`. Memory remains the default for offline CI and scripted local runs (same async port: tenant scope, idempotency, leases). Integration test `tests/integration/db/postgres-store.test.ts` runs when `DATABASE_URL` / `COMPASS_TEST_DATABASE_URL` is set (skipped in offline CI). Cloudflare Hyperdrive wiring remains an operations input and is not exercised offline.
 
+Interactive local personas (`config/auth/local-personas.yaml`) entitle only `telecom-api-sandbox`. In-process fixture deployments load only when `COMPASS_ENABLE_TEST_FIXTURES=1` (Vitest / `eval:offline` + `config/auth/test-personas.yaml`).
+
 ## Verification log
 
 - 2026-11-06: Postgres repos wired (`CompassStore`); `pnpm typecheck`; `pnpm test` → 38 passed, 1 skipped (Postgres, Docker unavailable)

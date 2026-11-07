@@ -51,9 +51,8 @@ export function createFixtureAuthorizationService(): AuthorizationService {
 }
 
 function entityBelongsToCustomer(ref: EntityRef, customerId: string): boolean {
-  // Fixture convention: shared IDs cust-100 / svc-100 etc. belong to cust-100;
-  // cust-200 owns svc-200 style IDs; cross-tenant isolation is by principal.tenantId
-  // at the repository layer, not here.
+  // Local/test entitlement heuristics only — not a production ownership oracle.
+  // Fixture convention: cust-100 / svc-100; sandbox-style: customer-001 / service-001.
   if (customerId === "cust-100") {
     return (
       ref.id === "cust-100" ||
@@ -63,6 +62,15 @@ function entityBelongsToCustomer(ref: EntityRef, customerId: string): boolean {
   }
   if (customerId === "cust-200") {
     return ref.id === "cust-200" || ref.id.endsWith("-200");
+  }
+  const sandbox = /^customer-(\d+)$/.exec(customerId);
+  if (sandbox) {
+    const n = sandbox[1];
+    return (
+      ref.id === customerId ||
+      ref.id === `party-${n}` ||
+      ref.id.endsWith(`-${n}`)
+    );
   }
   return ref.id === customerId || ref.id.startsWith(`${customerId}-`);
 }

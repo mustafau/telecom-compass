@@ -18,6 +18,8 @@ async function main(): Promise<void> {
   loadLocalDotenv(repoRoot);
   const env = loadEnv();
   const app = createApp();
+  // Eager boot so app.boot / tmfHosts appear in the terminal before the first chat.
+  await app.fetch(new Request(`http://127.0.0.1:${env.PORT}/api/health/ready`));
   const production = process.env.NODE_ENV === "production";
   const clientDir = path.join(repoRoot, "dist/client");
 

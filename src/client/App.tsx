@@ -50,12 +50,12 @@ function messagesToItems(
 export function App() {
   const [personas, setPersonas] = useState<Persona[]>([]);
   const [session, setSession] = useState<Session | null>(null);
-  const [deploymentId, setDeploymentId] = useState("fixture-a");
-  const [customerId, setCustomerId] = useState("cust-100");
+  const [deploymentId, setDeploymentId] = useState("telecom-api-sandbox");
+  const [customerId, setCustomerId] = useState("customer-001");
   const [conversation, setConversation] = useState<Conversation | null>(null);
   const [conversationList, setConversationList] = useState<ConversationSummary[]>([]);
   const [capabilities, setCapabilities] = useState<Record<string, boolean> | null>(null);
-  const [input, setInput] = useState("Why is svc-100 unavailable?");
+  const [input, setInput] = useState("Why is service-001 unavailable?");
   const [items, setItems] = useState<ChatItem[]>([]);
   const [busy, setBusy] = useState(false);
   const [evidence, setEvidence] = useState<unknown>(null);
@@ -67,6 +67,8 @@ export function App() {
       if (sessionRes.ok) {
         const next = (await sessionRes.json()) as Session;
         setSession(next);
+        if (next.allowedDeploymentIds[0]) setDeploymentId(next.allowedDeploymentIds[0]);
+        if (next.allowedCustomerIds[0]) setCustomerId(next.allowedCustomerIds[0]);
         await refreshConversations(true);
       }
       const personaRes = await fetch("/api/auth/local/personas");
@@ -148,7 +150,10 @@ export function App() {
       return;
     }
     const sessionRes = await fetch("/api/session");
-    setSession((await sessionRes.json()) as Session);
+    const next = (await sessionRes.json()) as Session;
+    setSession(next);
+    if (next.allowedDeploymentIds[0]) setDeploymentId(next.allowedDeploymentIds[0]);
+    if (next.allowedCustomerIds[0]) setCustomerId(next.allowedCustomerIds[0]);
     await refreshConversations(true);
   }
 
@@ -187,24 +192,55 @@ export function App() {
     await refreshConversations(false);
   }
 
+  function applyRevision(revision: number): void {
+    setConversation((prev) => (prev ? { ...prev, revision } : prev));
+  }
+
+  async function syncConversationRevision(id: string): Promise<number | null> {
+    const res = await fetch(`/api/conversations/${id}`);
+    if (!res.ok) return null;
+    const body = (await res.json()) as { conversation: { revision: number } };
+    applyRevision(body.conversation.revision);
+    return body.conversation.revision;
+  }
+
   async function sendTurn() {
     if (!conversation || busy) return;
     setBusy(true);
     setError(null);
+    const conversationId = conversation.id;
     setItems((prev) => [...prev, { kind: "user", text: input }]);
     try {
-      const res = await fetch(`/api/conversations/${conversation.id}/turns`, {
+      // Accept/finalize each bump revision; always read the server value before POST.
+      const expectedRevision =
+        (await syncConversationRevision(conversationId)) ?? conversation.revision;
+      const res = await fetch(`/api/conversations/${conversationId}/turns`, {
         method: "POST",
         headers: { "content-type": "application/json", origin: ORIGIN },
         body: JSON.stringify({
           clientTurnId: crypto.randomUUID(),
-          expectedRevision: conversation.revision,
+          expectedRevision,
           text: input,
         }),
       });
-      if (!res.ok || !res.body) {
-        throw new Error(`Turn failed (${res.status})`);
+      if (!res.ok) {
+        let message = `Turn failed (${res.status})`;
+        try {
+          const errBody = (await res.json()) as {
+            error?: { code?: string; message?: string; conversationRevision?: number };
+          };
+          if (typeof errBody.error?.conversationRevision === "number") {
+            applyRevision(errBody.error.conversationRevision);
+          } else {
+            await syncConversationRevision(conversationId);
+          }
+          message = errBody.error?.code ?? errBody.error?.message ?? message;
+        } catch {
+          await syncConversationRevision(conversationId);
+        }
+        throw new Error(message);
       }
+      if (!res.body) throw new Error("Turn failed (empty body)");
       const reader = res.body.getReader();
       const decoder = new TextDecoder();
       let buffer = "";
@@ -233,7 +269,7 @@ export function App() {
               const firstId = answer.content?.claims?.find((c) => c.evidenceIds?.[0])?.evidenceIds?.[0];
               if (firstId) {
                 const ev = await fetch(
-                  `/api/conversations/${conversation.id}/evidence/${firstId}`,
+                  `/api/conversations/${conversationId}/evidence/${firstId}`,
                 );
                 if (ev.ok) setEvidence(await ev.json());
               }
@@ -241,13 +277,17 @@ export function App() {
             if (parsed.type === "data-turn") {
               const data = parsed.data as { conversationRevision?: number; status?: string };
               if (typeof data.conversationRevision === "number") {
-                setConversation((prev) =>
-                  prev ? { ...prev, revision: data.conversationRevision! } : prev,
-                );
+                applyRevision(data.conversationRevision);
               }
             }
             if (parsed.type === "data-turn-error") {
-              const data = parsed.data as { message?: string };
+              const data = parsed.data as {
+                message?: string;
+                conversationRevision?: number;
+              };
+              if (typeof data.conversationRevision === "number") {
+                applyRevision(data.conversationRevision);
+              }
               setItems((prev) => [
                 ...prev,
                 { kind: "error", message: data.message ?? "Turn error" },
@@ -258,6 +298,7 @@ export function App() {
           }
         }
       }
+      await syncConversationRevision(conversationId);
       await refreshConversations(false);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Turn failed");
@@ -370,10 +411,16 @@ export function App() {
           <main className="panel chat">
             <h2>Chat</h2>
             <div className="suggestions">
-              <button type="button" onClick={() => setInput("Why is svc-100 unavailable?")}>
-                Diagnose svc-100
+              <button
+                type="button"
+                onClick={() => setInput("Why is service-001 unavailable?")}
+              >
+                Diagnose service-001
               </button>
-              <button type="button" onClick={() => setInput("What is the status of svc-100?")}>
+              <button
+                type="button"
+                onClick={() => setInput("What is the status of service-001?")}
+              >
                 Service status
               </button>
               <button

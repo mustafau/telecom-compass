@@ -86,7 +86,7 @@ export async function runTurn(
     | Awaited<ReturnType<DomainServices["getServiceDetails"]>>
     | undefined;
 
-  const serviceIdMatch = input.text.match(/\b(svc-[a-z0-9-]+)\b/i);
+  const serviceIdMatch = input.text.match(/\b((?:svc|service)-[a-z0-9-]+)\b/i);
   const serviceId = serviceIdMatch?.[1] ?? "svc-100";
 
   if (lower.includes("ticket") && !deps.profile.capabilities.ticketRead) {
