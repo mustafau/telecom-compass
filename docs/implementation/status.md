@@ -2,13 +2,13 @@
 
 Updated: 2026-11-06.
 
-M0–M7 local slices are implemented. Live OIDC IdP, live TMF production profiles, Hyperdrive-backed Postgres in Workers, and Playwright browser e2e remain unverified / incomplete relative to full production launch gates.
+M0–M7 local slices are implemented. Live Cloudflare Access OIDC discovery + authorize redirect verified against team `tiny-moon-dbaa` (PKCE login cookie → Access sign-in page). Full interactive IdP callback → Compass session still depends on a human browser login. Live TMF production profiles, Hyperdrive-backed Postgres in Workers, and Playwright browser e2e remain unverified / incomplete relative to full production launch gates.
 
 | Milestone | State | Evidence |
 | --- | --- | --- |
 | M0 Foundation | Complete (local) | Proof pipeline, health, build, wrangler dry-run |
 | M1 TMF profiles/adapters | Complete (local) | Fixture A/B, contract lock, transport, `profile:check`, `setup:local` |
-| M2 Identity/persistence | Complete (local) + OIDC wired | Local personas; OIDC discovery/PKCE/JWKS + email entitlements + UI Sign-in (Cloudflare Access compatible); live IdP still needs your Access app credentials |
+| M2 Identity/persistence | Complete (local) + OIDC live redirect verified | Local personas; OIDC discovery/PKCE/JWKS + email entitlements + UI Sign-in; Access issuer `tiny-moon-dbaa` discovery/authorize reach Access login; callback/session still manual |
 | M3 Tools/evidence | Complete (local) | Domain services, evidence ledger, audience projection, optional Markdown knowledge |
 | M4 Agent/API | Complete (local) | Scripted turn runner, conversation/turn/evidence/feedback routes, UI stream parts |
 | M5 Product UI | Complete (local, API journeys) | React chat UI with login, scope, capabilities, evidence drawer; **Playwright browser suite not added** — operator/customer journeys covered by HTTP integration tests |
@@ -46,7 +46,8 @@ Interactive local personas (`config/auth/local-personas.yaml`) entitle only `tel
 - 2026-11-06: Postgres repos wired (`CompassStore`); `pnpm typecheck`; `pnpm test` → 38 passed, 1 skipped (Postgres, Docker unavailable)
 - 2026-11-06: `pnpm eval:offline` (scripted fixture turns + recorded gates)
 - Playwright browser e2e: **not run / not packaged**
-- Live OIDC / live TMF / Worker+Hyperdrive: **unverified**
+- 2026-11-06: Live OIDC against Cloudflare Access (`tiny-moon-dbaa`): `/api/auth/mode` oidc; `/api/auth/login` 302 + `compass_oidc_login`; discovery JWKS/token endpoints present; authorize follows to Access “Sign in” page. Interactive Google/Access completion → `/api/auth/callback` session not automated here. Fixed `/api/health` false failure when `AUTH_MODE=oidc` (partial env omit of `OIDC_*`).
+- Live TMF production profiles / Worker+Hyperdrive: **unverified**
 - No Cloudflare account deployment performed
 
 ## Clarifications

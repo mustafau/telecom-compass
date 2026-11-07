@@ -45,7 +45,9 @@ export function createApp() {
 
   app.get("/api/health", (c) => {
     const bindings = c.env ?? ({} as WorkerBindings);
+    // Merge Worker bindings over process.env so AUTH_MODE=oidc still sees OIDC_* from dotenv.
     const loaded = tryLoadEnv({
+      ...process.env,
       APP_MODE: bindings.APP_MODE ?? process.env.APP_MODE ?? "local",
       AUTH_MODE: bindings.AUTH_MODE ?? process.env.AUTH_MODE ?? "local-fixture",
       MODEL_MODE: bindings.MODEL_MODE ?? process.env.MODEL_MODE ?? "scripted",
@@ -60,6 +62,7 @@ export function createApp() {
       service: "telecom-compass",
       appMode: loaded.env.APP_MODE,
       modelMode: loaded.env.MODEL_MODE,
+      authMode: loaded.env.AUTH_MODE,
     });
   });
 
