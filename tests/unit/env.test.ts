@@ -39,6 +39,19 @@ describe("loadEnv", () => {
     ).toThrow(/MODEL_API_KEY/);
   });
 
+  it("rejects unsupported MODEL_PROVIDER", () => {
+    expect(() =>
+      loadEnv({
+        APP_MODE: "local",
+        AUTH_MODE: "local-fixture",
+        MODEL_MODE: "provider",
+        MODEL_PROVIDER: "anthropic",
+        MODEL_ID: "claude",
+        MODEL_API_KEY: "sk-test",
+      }),
+    ).toThrow(/google|openai/);
+  });
+
   it("rejects oidc without client or state secret", () => {
     expect(() =>
       loadEnv({

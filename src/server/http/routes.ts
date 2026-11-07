@@ -14,6 +14,7 @@ import {
   SESSION_COOKIE,
 } from "../auth/session";
 import { hashRequest } from "../db/memory-store";
+import { createLanguageModel } from "../agent/model-provider";
 import { runTurn } from "../agent/turn-runner";
 import { assertAuthorized } from "../policy/fixture-authz";
 import { beginOidcLogin, exchangeAuthorizationCode } from "../auth/oidc/client";
@@ -461,6 +462,13 @@ export function mountApiRoutes(app: Hono, ctx: AppContext): void {
               services,
               profile,
               environment: profile.environment,
+              modelMode: ctx.env.MODEL_MODE,
+              model:
+                ctx.env.MODEL_MODE === "provider"
+                  ? createLanguageModel(ctx.env)
+                  : undefined,
+              maxDiscoverySteps: ctx.env.MAX_DISCOVERY_STEPS,
+              finalAnswerMaxTokens: ctx.env.FINAL_ANSWER_MAX_TOKENS,
             },
             {
               principal: session.principal,
@@ -469,6 +477,7 @@ export function mountApiRoutes(app: Hono, ctx: AppContext): void {
               leaseToken: accepted.turn.leaseToken,
               text: parsed.data.text,
               targetCustomerId: conversation.targetCustomerId,
+              deadlineMs: ctx.env.DISCOVERY_DEADLINE_MS,
               onProgress: (event) => {
                 write({ type: "data-progress", data: event });
               },

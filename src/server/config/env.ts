@@ -72,6 +72,11 @@ function assertModeCompatibility(env: AppEnv): void {
         "MODEL_MODE=provider requires MODEL_PROVIDER, MODEL_ID and MODEL_API_KEY",
       );
     }
+    if (env.MODEL_PROVIDER !== "google" && env.MODEL_PROVIDER !== "openai") {
+      throw new EnvValidationError(
+        'MODEL_PROVIDER must be "google" or "openai"',
+      );
+    }
   }
   if (env.AUTH_MODE === "oidc") {
     if (!env.OIDC_ISSUER || !env.OIDC_CLIENT_ID || !env.OIDC_REDIRECT_URI) {

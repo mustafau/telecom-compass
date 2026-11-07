@@ -32,6 +32,7 @@
     "test:e2e": "vitest run tests/integration/turns"
   },
   "dependencies": {
+    "@ai-sdk/google": "4.0.111",
     "@ai-sdk/openai": "4.0.106",
     "@ai-sdk/provider": "4.0.35",
     "@ai-sdk/react": "4.0.163",

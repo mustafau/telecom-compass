@@ -20,7 +20,16 @@ pnpm test:cloudflare
 pnpm exec wrangler deploy --dry-run   # no publish
 ```
 
-Local app defaults to http://localhost:3000. `APP_MODE=local`, `AUTH_MODE=local-fixture`, and `MODEL_MODE=scripted` are the safe defaults. `MODEL_MODE=provider` requires server-side provider settings; missing credentials must not silently fall back.
+Local app defaults to http://localhost:3000. `APP_MODE=local`, `AUTH_MODE=local-fixture`, and `MODEL_MODE=scripted` are the safe defaults. For live LLM turns (Google Gemini):
+
+```sh
+MODEL_MODE=provider
+MODEL_PROVIDER=google
+MODEL_ID=gemini-3.5-flash-lite
+MODEL_API_KEY=...   # Google AI Studio / Gemini API key
+```
+
+`MODEL_PROVIDER=openai` is also supported. Missing credentials must not silently fall back to scripted mode — startup fails instead.
 
 On some hosts (for example older macOS), `workerd` may fail binary validation. Unit tests and `wrangler deploy --dry-run` can still pass; interactive Worker preview needs a supported runtime. See [status.md](../implementation/status.md).
 
