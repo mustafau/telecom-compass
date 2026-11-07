@@ -1,0 +1,30 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Compass fixture Service Inventory v5",
+    "version": "fixture-1"
+  },
+  "paths": {
+    "/service/{id}": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "ok"
+          }
+        }
+      }
+    }
+  },
+  "x-compass-consumed-fields": [
+    "id",
+    "name",
+    "state",
+    "lifecycleStatus",
+    "supportingResource",
+    "supportingResources",
+    "serviceOrder",
+    "serviceOrders",
+    "isServiceEnabled",
+    "enabled"
+  ]
+}

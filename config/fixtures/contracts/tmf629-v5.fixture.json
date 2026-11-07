@@ -1,0 +1,25 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Compass fixture Customer v5 (not TM Forum official)",
+    "version": "fixture-1"
+  },
+  "paths": {
+    "/customer/{id}": {
+      "get": {
+        "operationId": "retrieveCustomer",
+        "responses": {
+          "200": {
+            "description": "ok"
+          }
+        }
+      }
+    }
+  },
+  "x-compass-consumed-fields": [
+    "id",
+    "name",
+    "status",
+    "relatedParty.partyOrPartyRole"
+  ]
+}

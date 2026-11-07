@@ -1,0 +1,23 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Compass fixture Resource Inventory v5",
+    "version": "fixture-1"
+  },
+  "paths": {
+    "/resource/{id}": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "ok"
+          }
+        }
+      }
+    }
+  },
+  "x-compass-consumed-fields": [
+    "id",
+    "name",
+    "operationalState"
+  ]
+}

@@ -1,0 +1,115 @@
+{
+  "schemaVersion": 1,
+  "contracts": [
+    {
+      "contractRef": "fixture-tmf629-v4-compass",
+      "apiId": "TMF629",
+      "major": "v4",
+      "edition": "compass-fixture-1",
+      "sha256": "f5299cc7aed27388232b0c43576d25e6a0c5072537a0c3bae7b19a2a69082ae6",
+      "file": "config/fixtures/contracts/tmf629-v4.fixture.json",
+      "source": "fixture-original",
+      "notes": "Original Compass fixture stub documenting consumed fields; not a TM Forum OpenAPI distribution."
+    },
+    {
+      "contractRef": "fixture-tmf629-v5-compass",
+      "apiId": "TMF629",
+      "major": "v5",
+      "edition": "compass-fixture-1",
+      "sha256": "23ea2c2b7bbd7e1816e1470957115eca5391fc884ff91e5a033ae49a1e9cface",
+      "file": "config/fixtures/contracts/tmf629-v5.fixture.json",
+      "source": "fixture-original",
+      "notes": "Original Compass fixture stub documenting consumed fields; not a TM Forum OpenAPI distribution."
+    },
+    {
+      "contractRef": "fixture-tmf637-v4-compass",
+      "apiId": "TMF637",
+      "major": "v4",
+      "edition": "compass-fixture-1",
+      "sha256": "e77a2b7d7b6a18b69808dea8ad892ed03a33dce9d702f7fcab485806ee69b51b",
+      "file": "config/fixtures/contracts/tmf637-v4.fixture.json",
+      "source": "fixture-original",
+      "notes": "Original Compass fixture stub documenting consumed fields; not a TM Forum OpenAPI distribution."
+    },
+    {
+      "contractRef": "fixture-tmf637-v5-compass",
+      "apiId": "TMF637",
+      "major": "v5",
+      "edition": "compass-fixture-1",
+      "sha256": "10963a5537d6d29ff49a13fd78ac360cbddcf7fd31219a727a26702219427647",
+      "file": "config/fixtures/contracts/tmf637-v5.fixture.json",
+      "source": "fixture-original",
+      "notes": "Original Compass fixture stub documenting consumed fields; not a TM Forum OpenAPI distribution."
+    },
+    {
+      "contractRef": "fixture-tmf638-v5-compass",
+      "apiId": "TMF638",
+      "major": "v5",
+      "edition": "compass-fixture-1",
+      "sha256": "389e7963589e9f1c959e1fc27520dd53e445ab7c5c5b61e5436c9c4980d8be6a",
+      "file": "config/fixtures/contracts/tmf638-v5.fixture.json",
+      "source": "fixture-original",
+      "notes": "Original Compass fixture stub documenting consumed fields; not a TM Forum OpenAPI distribution."
+    },
+    {
+      "contractRef": "fixture-tmf639-v4-compass",
+      "apiId": "TMF639",
+      "major": "v4",
+      "edition": "compass-fixture-1",
+      "sha256": "6ba686c556e746bcace5e1531ce16730ac454de34356f3f9cb8e93d0ca288e70",
+      "file": "config/fixtures/contracts/tmf639-v4.fixture.json",
+      "source": "fixture-original",
+      "notes": "Original Compass fixture stub documenting consumed fields; not a TM Forum OpenAPI distribution."
+    },
+    {
+      "contractRef": "fixture-tmf639-v5-compass",
+      "apiId": "TMF639",
+      "major": "v5",
+      "edition": "compass-fixture-1",
+      "sha256": "67afc894be8cbf71e13af352678235b8a25bf5d596173d6140bc83b0be5bbf74",
+      "file": "config/fixtures/contracts/tmf639-v5.fixture.json",
+      "source": "fixture-original",
+      "notes": "Original Compass fixture stub documenting consumed fields; not a TM Forum OpenAPI distribution."
+    },
+    {
+      "contractRef": "fixture-tmf621-v4-compass",
+      "apiId": "TMF621",
+      "major": "v4",
+      "edition": "compass-fixture-1",
+      "sha256": "80b6f2c2451aa77c597e875baea3d5c26adfb72ded05abebd9d7a542fb8e5fd8",
+      "file": "config/fixtures/contracts/tmf621-v4.fixture.json",
+      "source": "fixture-original",
+      "notes": "Original Compass fixture stub documenting consumed fields; not a TM Forum OpenAPI distribution."
+    },
+    {
+      "contractRef": "fixture-tmf621-v5-compass",
+      "apiId": "TMF621",
+      "major": "v5",
+      "edition": "compass-fixture-1",
+      "sha256": "bfa05b24b0d7d0acece8786a271dc816b2e73de320e75726b5ea8002e72e86fc",
+      "file": "config/fixtures/contracts/tmf621-v5.fixture.json",
+      "source": "fixture-original",
+      "notes": "Original Compass fixture stub documenting consumed fields; not a TM Forum OpenAPI distribution."
+    },
+    {
+      "contractRef": "fixture-tmf641-v4-compass",
+      "apiId": "TMF641",
+      "major": "v4",
+      "edition": "compass-fixture-1",
+      "sha256": "864efb465641603509a340efa80888a778e7ce9ef8d730117d828b4a3e2e7367",
+      "file": "config/fixtures/contracts/tmf641-v4.fixture.json",
+      "source": "fixture-original",
+      "notes": "Original Compass fixture stub documenting consumed fields; not a TM Forum OpenAPI distribution."
+    },
+    {
+      "contractRef": "fixture-tmf641-v5-compass",
+      "apiId": "TMF641",
+      "major": "v5",
+      "edition": "compass-fixture-1",
+      "sha256": "b5ee4bfe217596bb09b4968e59a7f5d975ba05b13bcdbffe3ec19c22bb152380",
+      "file": "config/fixtures/contracts/tmf641-v5.fixture.json",
+      "source": "fixture-original",
+      "notes": "Original Compass fixture stub documenting consumed fields; not a TM Forum OpenAPI distribution."
+    }
+  ]
+}

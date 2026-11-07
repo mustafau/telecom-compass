@@ -1,0 +1,43 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Compass fixture Product Inventory v4",
+    "version": "fixture-1"
+  },
+  "paths": {
+    "/product/{id}": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "ok"
+          }
+        }
+      }
+    },
+    "/product": {
+      "get": {
+        "parameters": [
+          {
+            "name": "relatedParty.id",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "ok"
+          }
+        }
+      }
+    }
+  },
+  "x-compass-consumed-fields": [
+    "id",
+    "name",
+    "status",
+    "realizingService",
+    "relatedParty"
+  ]
+}

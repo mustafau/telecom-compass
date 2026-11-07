@@ -1,0 +1,43 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Compass fixture Trouble Ticket v5",
+    "version": "fixture-1"
+  },
+  "paths": {
+    "/troubleTicket/{id}": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "ok"
+          }
+        }
+      }
+    },
+    "/troubleTicket": {
+      "get": {
+        "parameters": [
+          {
+            "name": "affectedService.id",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "ok"
+          }
+        }
+      }
+    }
+  },
+  "x-compass-consumed-fields": [
+    "id",
+    "status",
+    "priority",
+    "relatedEntity.entity",
+    "expectedResolutionDate"
+  ]
+}

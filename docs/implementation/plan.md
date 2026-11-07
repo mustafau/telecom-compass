@@ -8,7 +8,7 @@ Package, lockfile, Hono + Vite/React, Wrangler, lint/format, tests, server-only 
 
 Acceptance (met): production build compiles; no-key proof works; client bundle has no provider secrets; baseline tests pass; versions recorded in status.md.
 
-## M1 — Deployment profile, transport and normalization
+## M1 — Deployment profile, transport and normalization — done
 
 Implement profile schema/loader/revision hashing, contract lock, operation registry, credential bindings, bounded GET transport and adapter registry. Acquire pinned official/approved contracts for the initial supported editions. Build original fixture servers A/B and selected-field normalizers; implement reference/query/via relationship plans. Add profile:check offline and explicitly authorized live-probe modes. Implement local setup that selects `telecom-api-sandbox` at `LOCAL_TMF_BASE_URL` (default http://localhost:8787) and produces a validated ordinary deployment profile. See [default backend](../operations/default-backend.md).
 

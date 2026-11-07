@@ -23,28 +23,32 @@ Local app defaults to http://localhost:3000. `APP_MODE=local`, `AUTH_MODE=local-
 
 On some hosts (for example older macOS), `workerd` may fail binary validation. Unit tests and `wrangler deploy --dry-run` can still pass; interactive Worker preview needs a supported runtime. See [status.md](../implementation/status.md).
 
-## Default TMF backend (from M1)
+## Default TMF backend (M1+)
 
 Start [telecom-api-sandbox](https://github.com/mustafau/telecom-api-sandbox) separately (default http://localhost:8787). Compass must not modify or embed that server.
 
 ```sh
-pnpm setup:local   # planned: selects telecom-api-sandbox and prepares its ordinary profile
-pnpm db:migrate
+pnpm setup:local                 # writes config/deployments.local.yaml + contracts.lock.local.json
+pnpm profile:check --profile telecom-api-sandbox \
+  --deployments config/deployments.local.yaml \
+  --lock config/contracts.lock.local.json
+pnpm db:migrate                  # when persistence is used (M2+)
 pnpm dev
 ```
 
-`LOCAL_TMF_BASE_URL` is overridable during setup. See [default backend](default-backend.md). If the sandbox is down, show a clear connection error; never silently switch backends.
+`LOCAL_TMF_BASE_URL` (or `pnpm setup:local --base <url>`) is overridable during setup. See [default backend](default-backend.md). If the sandbox is down, setup still writes a profile with placeholders and warns; runtime must not silently switch to test fixtures.
 
 ## Independent fixtures and later test gates
 
-The separate fixture server will default to 127.0.0.1:8789. Planned commands:
+Checked-in fixture profiles A/B (and degraded C/D) live under `config/fixtures/`. In-process Hono fixtures serve the same business IDs on different paths for unit/integration tests — no sandbox required.
 
 ```sh
-pnpm fixtures:start
-pnpm test:contract
-pnpm test:integration
-pnpm eval:offline
+pnpm profile:check --profile fixture-a
+pnpm profile:check --profile fixture-b
+pnpm test
+# later:
 pnpm test:e2e
+pnpm eval:offline
 ```
 
 Integration/browser runners should own PostgreSQL and fixture lifecycle so CI needs no manually running sandbox. Store reports under ignored `.artifacts/`. Cloudflare compatibility must be tested under Wrangler/`workerd`, not inferred from Node-only `pnpm dev`. See [Cloudflare deployment](cloudflare.md).

@@ -2,7 +2,7 @@
 
 An evidence-backed assistant for telecom operators and, after production authorization is integrated, customers. It answers questions about services, orders, and incidents through existing TM Forum APIs.
 
-**Status:** M0 foundation is implemented (Hono + React/Vite Worker scaffold, env validation, scripted AI SDK proof, tests, Cloudflare dry-run build). Product features — TMF profiles, auth, persistence, and chat UI — continue from M1. See [implementation status](docs/implementation/status.md).
+**Status:** M0–M1 implemented locally (Hono + React/Vite Worker scaffold, TMF deployment profiles/adapters, independent fixtures, `profile:check` / `setup:local`). Auth, persistence, domain tools, and chat UI continue from M2. See [implementation status](docs/implementation/status.md).
 
 **License:** [MIT](LICENSE) — Copyright (c) 2026 Telecom Compass contributors.
 
@@ -18,7 +18,7 @@ pnpm dev
 
 - App defaults to http://localhost:3000
 - `MODEL_MODE=scripted` needs no provider key
-- Default TMF backend for later milestones: [telecom-api-sandbox](https://github.com/mustafau/telecom-api-sandbox) at `http://localhost:8787` (not required for M0 tests)
+- Default local TMF backend: [telecom-api-sandbox](https://github.com/mustafau/telecom-api-sandbox) at `http://localhost:8787` — run `pnpm setup:local` after it is up (not required for fixture tests)
 - Never commit real secrets; use `.env.local`, Worker secrets, or `config/secrets/` (gitignored)
 
 ## Architecture (summary)

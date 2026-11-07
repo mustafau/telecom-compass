@@ -1,0 +1,25 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Compass fixture Service Ordering v4",
+    "version": "fixture-1"
+  },
+  "paths": {
+    "/serviceOrder/{id}": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "ok"
+          }
+        }
+      }
+    }
+  },
+  "x-compass-consumed-fields": [
+    "id",
+    "state",
+    "description",
+    "serviceOrderItem",
+    "expectedCompletionDate"
+  ]
+}

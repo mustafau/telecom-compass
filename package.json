@@ -23,7 +23,9 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "db:generate": "drizzle-kit generate",
-    "db:migrate": "tsx src/server/db/migrate.ts"
+    "db:migrate": "tsx src/server/db/migrate.ts",
+    "profile:check": "tsx scripts/profile-check.ts",
+    "setup:local": "tsx scripts/setup-local.ts"
   },
   "dependencies": {
     "@ai-sdk/openai": "4.0.106",
@@ -36,6 +38,7 @@
     "pg": "8.23.1",
     "react": "19.2.1",
     "react-dom": "19.2.1",
+    "yaml": "2.8.1",
     "zod": "3.25.76"
   },
   "devDependencies": {

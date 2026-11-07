@@ -1,0 +1,415 @@
+schemaVersion: 1
+deployments:
+  - id: fixture-a
+    label: Fixture A mixed-major
+    environment: fixture
+    tenantBindings: [tenant-fixture]
+    authentication:
+      fixture:
+        type: none
+    apis:
+      customer:
+        apiId: TMF629
+        major: v4
+        contractRef: fixture-tmf629-v4-compass
+        adapter: tmf629-v4
+        baseUrl: http://127.0.0.1:8789/a/customer/v4
+        auth: fixture
+        operations:
+          customer.get:
+            method: GET
+            path: /customer/{id}
+            responseKind: customer
+      product:
+        apiId: TMF637
+        major: v4
+        contractRef: fixture-tmf637-v4-compass
+        adapter: tmf637-v4
+        baseUrl: http://127.0.0.1:8789/a/productInventory/v4
+        auth: fixture
+        operations:
+          product.get:
+            method: GET
+            path: /product/{id}
+            responseKind: product
+          product.listByCustomer:
+            method: GET
+            path: /product
+            responseKind: productCollection
+            query:
+              - name: relatedParty.id
+                source: context.targetCustomerId
+                type: string
+            pagination:
+              mode: offset
+              offsetParam: offset
+              limitParam: limit
+              maxPageSize: 50
+              maxPages: 2
+      service:
+        apiId: TMF638
+        major: v5
+        contractRef: fixture-tmf638-v5-compass
+        adapter: tmf638-v5
+        baseUrl: http://127.0.0.1:8789/a/serviceInventory/v5
+        auth: fixture
+        operations:
+          service.get:
+            method: GET
+            path: /service/{id}
+            responseKind: service
+      resource:
+        apiId: TMF639
+        major: v4
+        contractRef: fixture-tmf639-v4-compass
+        adapter: tmf639-v4
+        baseUrl: http://127.0.0.1:8789/a/resourceInventory/v4
+        auth: fixture
+        operations:
+          resource.get:
+            method: GET
+            path: /resource/{id}
+            responseKind: resource
+      ticket:
+        apiId: TMF621
+        major: v4
+        contractRef: fixture-tmf621-v4-compass
+        adapter: tmf621-v4
+        baseUrl: http://127.0.0.1:8789/a/troubleTicket/v4
+        auth: fixture
+        operations:
+          ticket.get:
+            method: GET
+            path: /troubleTicket/{id}
+            responseKind: troubleTicket
+          ticket.listByService:
+            method: GET
+            path: /troubleTicket
+            responseKind: troubleTicketCollection
+            query:
+              - name: relatedEntity.id
+                source: args.serviceId
+                type: string
+            pagination:
+              mode: offset
+              offsetParam: offset
+              limitParam: limit
+              maxPageSize: 50
+              maxPages: 2
+      order:
+        apiId: TMF641
+        major: v4
+        contractRef: fixture-tmf641-v4-compass
+        adapter: tmf641-v4
+        baseUrl: http://127.0.0.1:8789/a/serviceOrdering/v4
+        auth: fixture
+        operations:
+          order.get:
+            method: GET
+            path: /serviceOrder/{id}
+            responseKind: serviceOrder
+    capabilities:
+      customerRead: true
+      productRead: true
+      serviceRead: true
+      resourceRead: true
+      ticketRead: true
+      serviceOrderRead: true
+      customerToServices: true
+      serviceToTickets: true
+      serviceToOrders: true
+      knowledgeSearch: false
+    relationships:
+      customerToProducts:
+        type: query
+        operation: product.listByCustomer
+      productToServices:
+        type: reference
+        normalizedField: realizingServices
+        targetOperation: service.get
+      customerToServices:
+        type: via
+        steps: [customerToProducts, productToServices]
+      serviceToResources:
+        type: reference
+        normalizedField: supportingResources
+        targetOperation: resource.get
+      serviceToTickets:
+        type: query
+        operation: ticket.listByService
+      serviceToOrders:
+        type: reference
+        normalizedField: serviceOrders
+        targetOperation: order.get
+    extensions: []
+    knowledge:
+      type: disabled
+    limits:
+      maxRelatedRecordsPerKind: 5
+      maxRelationshipDepth: 3
+      maxResponseBytes: 1048576
+
+  - id: fixture-b
+    label: Fixture B alternate paths and queries
+    environment: fixture
+    tenantBindings: [tenant-fixture]
+    authentication:
+      fixture:
+        type: none
+    apis:
+      customer:
+        apiId: TMF629
+        major: v5
+        contractRef: fixture-tmf629-v5-compass
+        adapter: tmf629-v5
+        baseUrl: http://127.0.0.1:8789/b/tmf/customerManagement/v5
+        auth: fixture
+        operations:
+          customer.get:
+            method: GET
+            path: /customer/{id}
+            responseKind: customer
+      product:
+        apiId: TMF637
+        major: v5
+        contractRef: fixture-tmf637-v5-compass
+        adapter: tmf637-v5
+        baseUrl: http://127.0.0.1:8789/b/tmf/productInventory/v5
+        auth: fixture
+        operations:
+          product.get:
+            method: GET
+            path: /product/{id}
+            responseKind: product
+          product.listByCustomer:
+            method: GET
+            path: /product
+            responseKind: productCollection
+            query:
+              - name: customer.id
+                source: context.targetCustomerId
+                type: string
+            pagination:
+              mode: offset
+              offsetParam: offset
+              limitParam: limit
+              maxPageSize: 50
+              maxPages: 2
+      service:
+        apiId: TMF638
+        major: v5
+        contractRef: fixture-tmf638-v5-compass
+        adapter: tmf638-v5
+        baseUrl: http://127.0.0.1:8789/b/tmf/serviceInventory/v5
+        auth: fixture
+        operations:
+          service.get:
+            method: GET
+            path: /service/{id}
+            responseKind: service
+      resource:
+        apiId: TMF639
+        major: v5
+        contractRef: fixture-tmf639-v5-compass
+        adapter: tmf639-v5
+        baseUrl: http://127.0.0.1:8789/b/tmf/resourceInventory/v5
+        auth: fixture
+        operations:
+          resource.get:
+            method: GET
+            path: /resource/{id}
+            responseKind: resource
+      ticket:
+        apiId: TMF621
+        major: v5
+        contractRef: fixture-tmf621-v5-compass
+        adapter: tmf621-v5
+        baseUrl: http://127.0.0.1:8789/b/tmf/troubleTicket/v5
+        auth: fixture
+        operations:
+          ticket.get:
+            method: GET
+            path: /troubleTicket/{id}
+            responseKind: troubleTicket
+          ticket.listByService:
+            method: GET
+            path: /troubleTicket
+            responseKind: troubleTicketCollection
+            query:
+              - name: affectedService.id
+                source: args.serviceId
+                type: string
+            pagination:
+              mode: offset
+              offsetParam: offset
+              limitParam: limit
+              maxPageSize: 50
+              maxPages: 2
+      order:
+        apiId: TMF641
+        major: v5
+        contractRef: fixture-tmf641-v5-compass
+        adapter: tmf641-v5
+        baseUrl: http://127.0.0.1:8789/b/tmf/serviceOrdering/v5
+        auth: fixture
+        operations:
+          order.get:
+            method: GET
+            path: /serviceOrder/{id}
+            responseKind: serviceOrder
+    capabilities:
+      customerRead: true
+      productRead: true
+      serviceRead: true
+      resourceRead: true
+      ticketRead: true
+      serviceOrderRead: true
+      customerToServices: true
+      serviceToTickets: true
+      serviceToOrders: true
+      knowledgeSearch: false
+    relationships:
+      customerToProducts:
+        type: query
+        operation: product.listByCustomer
+      productToServices:
+        type: reference
+        normalizedField: realizingServices
+        targetOperation: service.get
+      customerToServices:
+        type: via
+        steps: [customerToProducts, productToServices]
+      serviceToResources:
+        type: reference
+        normalizedField: supportingResources
+        targetOperation: resource.get
+      serviceToTickets:
+        type: query
+        operation: ticket.listByService
+      serviceToOrders:
+        type: reference
+        normalizedField: serviceOrders
+        targetOperation: order.get
+    extensions: []
+    knowledge:
+      type: disabled
+    limits:
+      maxRelatedRecordsPerKind: 5
+      maxRelationshipDepth: 3
+      maxResponseBytes: 1048576
+
+  - id: fixture-c
+    label: Fixture C missing ticket capability
+    environment: fixture
+    tenantBindings: [tenant-fixture]
+    authentication:
+      fixture:
+        type: none
+    apis:
+      customer:
+        apiId: TMF629
+        major: v4
+        contractRef: fixture-tmf629-v4-compass
+        adapter: tmf629-v4
+        baseUrl: http://127.0.0.1:8789/a/customer/v4
+        auth: fixture
+        operations:
+          customer.get:
+            method: GET
+            path: /customer/{id}
+            responseKind: customer
+      service:
+        apiId: TMF638
+        major: v5
+        contractRef: fixture-tmf638-v5-compass
+        adapter: tmf638-v5
+        baseUrl: http://127.0.0.1:8789/a/serviceInventory/v5
+        auth: fixture
+        operations:
+          service.get:
+            method: GET
+            path: /service/{id}
+            responseKind: service
+    capabilities:
+      customerRead: true
+      productRead: false
+      serviceRead: true
+      resourceRead: false
+      ticketRead: true
+      serviceOrderRead: false
+      customerToServices: false
+      serviceToTickets: true
+      serviceToOrders: false
+      knowledgeSearch: false
+    relationships: {}
+    extensions: []
+    knowledge:
+      type: disabled
+    limits:
+      maxRelatedRecordsPerKind: 5
+      maxRelationshipDepth: 3
+      maxResponseBytes: 1048576
+
+  - id: fixture-d
+    label: Fixture D unavailable relationship lookup
+    environment: fixture
+    tenantBindings: [tenant-fixture]
+    authentication:
+      fixture:
+        type: none
+    apis:
+      customer:
+        apiId: TMF629
+        major: v4
+        contractRef: fixture-tmf629-v4-compass
+        adapter: tmf629-v4
+        baseUrl: http://127.0.0.1:8789/a/customer/v4
+        auth: fixture
+        operations:
+          customer.get:
+            method: GET
+            path: /customer/{id}
+            responseKind: customer
+      product:
+        apiId: TMF637
+        major: v4
+        contractRef: fixture-tmf637-v4-compass
+        adapter: tmf637-v4
+        baseUrl: http://127.0.0.1:8789/a/productInventory/v4
+        auth: fixture
+        operations:
+          product.get:
+            method: GET
+            path: /product/{id}
+            responseKind: product
+      service:
+        apiId: TMF638
+        major: v5
+        contractRef: fixture-tmf638-v5-compass
+        adapter: tmf638-v5
+        baseUrl: http://127.0.0.1:8789/a/serviceInventory/v5
+        auth: fixture
+        operations:
+          service.get:
+            method: GET
+            path: /service/{id}
+            responseKind: service
+    capabilities:
+      customerRead: true
+      productRead: true
+      serviceRead: true
+      resourceRead: false
+      ticketRead: false
+      serviceOrderRead: false
+      customerToServices: true
+      serviceToTickets: false
+      serviceToOrders: false
+      knowledgeSearch: false
+    relationships: {}
+    extensions: []
+    knowledge:
+      type: disabled
+    limits:
+      maxRelatedRecordsPerKind: 5
+      maxRelationshipDepth: 3
+      maxResponseBytes: 1048576
